@@ -1,12 +1,11 @@
 open Tea
 open Tea.Html
 
-type color =
-  | Black
-  | White
+type color = Ochess.color
 
 type model =
   { orientation : color
+  ; position : Ochess.position
   }
 
 type msg =
@@ -16,15 +15,15 @@ type msg =
 
 let init () =
   { orientation = White
+  ; position = Ochess.init_position
   }, Cmd.none
 
 
 let update model = function
   | Flip ->
-    let orientation' = match model.orientation with
-      | Black -> White
-      | White -> Black in
-    { orientation = orientation'
+    let orientation' = Ochess.opposite_color model.orientation in
+    { model with
+      orientation = orientation'
     }, Cmd.none
 
 
