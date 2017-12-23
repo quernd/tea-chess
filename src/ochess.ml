@@ -40,7 +40,17 @@
 
 open Printf
 open Sys
-open Str
+(* open Str *)
+let split_on_char sep s =
+  let r = ref [] in
+  let j = ref (String.length s) in
+  for i = String.length s - 1 downto 0 do
+    if s.[i] = sep then begin
+      r := String.sub s (i + 1) (!j - i - 1) :: !r;
+      j := i
+    end
+  done;
+  String.sub s 0 !j :: !r
 
 (* 
     Chess rules
@@ -258,9 +268,9 @@ let rec explore_direction (pos:position) x_init y_init x y dx dy num (acc : move
     let (x2, y2) = add (x, y) (dx, dy) in
     if within_range2 (x2, y2) then
       (match pos.ar.(x2).(y2) with
-       | Piece(pt, c) when c <> pos.turn -> Move(x_init, y_init, x2, y2) :: acc
+       | Piece(_pt, c) when c <> pos.turn -> Move(x_init, y_init, x2, y2) :: acc
        | Empty -> explore_direction pos x_init y_init x2 y2 dx dy (num - 1) (Move(x_init, y_init, x2, y2) :: acc)
-       | Piece(pt, c) -> acc)
+       | Piece(_pt, _c) -> acc)
     else acc
 
 let explore_directions pos x y lst num =
@@ -286,10 +296,10 @@ let rec checked_directions pos c pt_list x y lst num =
                         || checked_directions pos c pt_list x y t       num))
 
 let checked pos t x y = 
-  checked_directions pos t [Rook;   Queen] x y rook   10 or
-  checked_directions pos t [Bishop; Queen] x y bishop 10 or
-  checked_directions pos t [Knight]        x y knight 1 or
-  checked_directions pos t [King]          x y queen  1 or
+  checked_directions pos t [Rook;   Queen] x y rook   10 ||
+  checked_directions pos t [Bishop; Queen] x y bishop 10 ||
+  checked_directions pos t [Knight]        x y knight 1 ||
+  checked_directions pos t [King]          x y queen  1 ||
   let tmp = if t = White then pawn_white_cap else pawn_black_cap in
   checked_directions pos t [Pawn]          x y tmp    1
 
@@ -493,7 +503,7 @@ let rec alpha_beta pos depth achievable cutoff =
   let pm = List.map (fun m -> delta pos m, m) (possible_moves pos) in
   let pm = List.sort (fun (x, _) (y, _) -> compare y x) pm in (* sort in decreasing order *)
   (match pm with 
-   | (d,m) :: _ when d >= win -> raise Illegal_position (* king can be captured *)
+   | (d,_m) :: _ when d >= win -> raise Illegal_position (* king can be captured *)
    | _ -> ());
   let rec loop ach cut lst best =
     if ach >= cut then (ach, best) else (* PRUNING *)
@@ -562,7 +572,7 @@ let previous pos =
 let print_move (p:position) = function (* does not check validity *)
   | Move(x1, y1, x2, y2) -> 
     ( match p.ar.(x1).(y1) with 
-      | Piece(pt, _) -> printf "%c%d%c%d" (letter_of_int x1) (y1 + 1) (letter_of_int x2) (y2 + 1)
+      | Piece(_pt, _) -> printf "%c%d%c%d" (letter_of_int x1) (y1 + 1) (letter_of_int x2) (y2 + 1)
       | _ -> raise Illegal_move )
   | Kingside_castle -> printf "O-O"
   | Queenside_castle -> printf "O-O-O"
@@ -615,22 +625,22 @@ type clock = Conventional of int * float | Incremental of float * float | Exact 
 
 let init_rem_time = function
   | Exact x -> x
-  | Incremental (x, y) -> x
-  | Conventional (n, y) -> y
+  | Incremental (x, _y) -> x
+  | Conventional (_n, y) -> y
 
 let thinking_interval moves_made cl remaining =  
   (match cl with
    | Exact x -> 0.95 *. x
-   | Incremental (x, y) -> let est_moves_to_play = max 20 (50 - moves_made) in
+   | Incremental (_x, y) -> let est_moves_to_play = max 20 (50 - moves_made) in
      0.95 *. min remaining (remaining /. float est_moves_to_play +. y)
-   | Conventional (n, y) -> let moves_until_incr = n - moves_made mod n + 1
+   | Conventional (n, _y) -> let moves_until_incr = n - moves_made mod n + 1
      and est_moves_to_play = max 20 (50 - moves_made) in
      let rem_moves = min moves_until_incr est_moves_to_play in
      0.95 *. remaining /. float (rem_moves + 2))
 
 
 
-let update_remaining moves_made cl remaining interval =  (* in case the front end does not send 'time' *)
+let update_remaining _moves_made cl remaining interval =  (* in case the front end does not send 'time' *)
   (match cl with
    | Exact x -> x
    | Incremental (x, y) -> x +. y -. interval
@@ -639,7 +649,7 @@ let update_remaining moves_made cl remaining interval =  (* in case the front en
 type state = {pos : position; c : color; cl : clock; rem_time : float; gui : bool}
 
 let parse_time str = 
-  (match split (regexp ":") str with
+  (match split_on_char ':' str with
    | [x] -> 60.0 *. float_of_string x
    | [x; y] -> 60.0 *. float_of_string x +. float_of_string y
    | _ -> raise Exit)
@@ -677,7 +687,7 @@ let main () =
   and interact x lst = (* mutually recursive 'think' and 'interact' *)
     let str = read_line () in
     let ignoring str = printf " Ignoring command %s\n" str; flush (); think x in
-    (match split (regexp " ") str with
+    (match split_on_char ' ' str with
      | ["xboard"] -> (printf "feature myname=\"O'Chess\" done=1\n"; flush (); think {x with gui = true})
      | ["hard"] | ["easy"] | ["random"] | ["?"] | ["force"] | ["draw"]  (* ignored *)
      | "result" :: _ | ["otim"; _ ] -> think x                          (* ignored *)
