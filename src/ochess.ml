@@ -718,6 +718,6 @@ let main () =
 (* 
     Start playing
 *)
-
+(*
 let () = main ()
-
+*)
