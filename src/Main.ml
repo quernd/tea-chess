@@ -35,11 +35,16 @@ let view model =
 
   let rank_view rank =
     let square_view rank file =
-      node "cb-square"
-        [ style "text-align" "center" ]
-        [ Printf.sprintf "%c%c"
-            (Chess.char_of_file file) (Chess.char_of_rank rank) 
-          |> text
+      node "cb-square" []
+        [ match model.position.ar.(file).(rank) with
+          | Chess.Piece (piece_type, color) ->
+            node "cb-piece"
+              [ classList
+                  [ Chess.string_of_color color, true
+                  ; Chess.string_of_piece_type piece_type, true
+                  ]
+              ] []
+          | Chess.Empty -> noNode
         ] in
     List.map (square_view rank) files
     |> node "cb-row" [] in
