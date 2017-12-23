@@ -10,6 +10,8 @@ type model =
 
 type msg =
   | Flip
+  | Random_button
+  | Random_move of Chess.move
 [@@bs.deriving {accessors}]
 
 
@@ -25,6 +27,40 @@ let update model = function
     { model with
       orientation = orientation'
     }, Cmd.none
+  | Random_button ->
+    model,
+    begin match Chess.game_status model.position with
+      | Play move_list ->
+        List.length move_list
+        |> Random.int 0
+        |> Random.generate
+          (fun random_number ->
+             List.nth move_list random_number |> random_move)
+      | _ -> Cmd.none
+    end
+  | Random_move move ->
+    { model with
+      position = Chess.make_move model.position move 0 }, Cmd.none
+
+
+let result_view result =
+  p []
+    [ begin match result with
+        | Chess.Win White -> "White wins by checkmate!" 
+        | Chess.Win Black -> "Black wins by checkmate!"
+        | Chess.Draw -> "The game is a draw!"
+        | Chess.Play move_list ->
+          List.length move_list
+          |> Printf.sprintf "There are %d legal moves in this position!"
+      end |> text
+    ]
+
+
+let buttons_view =
+  p []
+    [ button [onClick Flip] [text "flip board"]
+    ; button [onClick Random_button] [text "random move"]
+    ]
 
 
 let view model =
@@ -52,7 +88,8 @@ let view model =
   div []
     [ List.map rank_view ranks
       |> node "cb-board" []
-    ; p [] [button [onClick Flip] [text "flip board"]]
+    ; buttons_view
+    ; Chess.game_status model.position |> result_view 
     ]
 
 
