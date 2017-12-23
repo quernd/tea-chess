@@ -38,7 +38,14 @@ let view model =
 
   let rank_view rank =
     let square_view rank file =
-      td []
+      td
+        [ styles
+            (if (file + rank) mod 2 = 0
+             then [ "background-color", "black"
+                  ; "color", "white"
+                  ]
+             else [])
+        ]
         [ Printf.sprintf "%c%c" (char_of_file file) (char_of_rank rank) 
           |> text
         ] in
@@ -48,7 +55,7 @@ let view model =
   div []
     [ List.map rank_view ranks
       |> table []
-    ; button [onClick Flip] [text "flip board"]
+    ; p [] [button [onClick Flip] [text "flip board"]]
     ]
 
 
