@@ -16,7 +16,7 @@ type msg =
 
 let init () =
   { position = Chess.init_position
-  ; board = Board.init ()
+  ; board = Board.init () 
   }, Cmd.none
 
 

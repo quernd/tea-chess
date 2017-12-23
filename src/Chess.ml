@@ -1,5 +1,10 @@
 include Ochess
 
+type file = int
+type rank = int
+
+type square = file * rank
+
 let char_of_file file = "abcdefgh".[file]
 let char_of_rank rank = "12345678".[rank]
 

@@ -1,25 +1,64 @@
 open Tea
 open Tea.Html
 
+open Chess
+
+type size = int
+
+type partial_move =
+  | CompletedMove of move
+  | PawnWillPromote
+
+type dragging = { turn : color
+                ; source : square
+                ; target : square option
+                ; legal_targets : (square * partial_move) list
+                ; initial : Mouse.position
+                ; offset : Mouse.position
+                ; coordinates : Mouse.position
+                ; size : size
+                ; orientation : color
+                }
+
+type status =
+  | Dragging of dragging
+  | Nothing
+
+type interactable =
+  | Not_interactable
+  | Interactable of color * move list
 
 type model =
-  { orientation : Chess.color
+  { orientation : color
+  ; status : status
   }
 
-type msg =
+type internal_msg =
   | Flip
+  | Move_start of dragging
+  | Move_drag of Mouse.position
+  | Move_drop of Mouse.position
+[@@bs.deriving {accessors}]
+
+type msg =
+  | Internal_msg of internal_msg
+  | Move of move
+[@@bs.deriving {accessors}]
 
 
 let init () =
   { orientation = Chess.White
+  ; status = Nothing
   }
 
 
 let update model = function
-  | Flip ->
+  | Internal_msg Flip ->
     let orientation' = Chess.opposite_color model.orientation in
-    { orientation = orientation'
+    { model with
+      orientation = orientation'
     }, Cmd.none
+  | _ -> model, Cmd.none
 
 let result_view result =
   p []
@@ -35,7 +74,7 @@ let result_view result =
 
 
 let buttons_view =
-  [ button [onClick Flip] [text "flip board"]
+  [ button [onClick (Internal_msg Flip)] [text "flip board"]
   ]
 
 
