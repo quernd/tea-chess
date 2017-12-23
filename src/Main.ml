@@ -38,23 +38,17 @@ let view model =
 
   let rank_view rank =
     let square_view rank file =
-      td
-        [ styles
-            (if (file + rank) mod 2 = 0
-             then [ "background-color", "black"
-                  ; "color", "white"
-                  ]
-             else [])
-        ]
+      node "cb-square"
+        [ style "text-align" "center" ]
         [ Printf.sprintf "%c%c" (char_of_file file) (char_of_rank rank) 
           |> text
         ] in
     List.map (square_view rank) files
-    |> tr [] in
+    |> node "cb-row" [] in
 
   div []
     [ List.map rank_view ranks
-      |> table []
+      |> node "cb-board" []
     ; p [] [button [onClick Flip] [text "flip board"]]
     ]
 

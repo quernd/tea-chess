@@ -1,0 +1,37 @@
+cb-board {
+    display: inline-block;
+    border: 1px solid #404040;
+    box-sizing: content-box;
+    width: 480px;
+    height: 480px;
+}
+
+cb-row:after {
+    display: block;
+    clear: both;
+}
+cb-row:nth-child(even) cb-square:nth-child(even) {
+    background-color: #f0d9b5;
+    color: #b58863;
+}
+cb-row:nth-child(even) cb-square:nth-child(odd) {
+    background-color: #b58863;
+    color: #f0d9b5;
+}
+cb-row:nth-child(odd) cb-square:nth-child(even) {
+    background-color: #b58863;
+    color: #f0d9b5;
+}
+cb-row:nth-child(odd) cb-square:nth-child(odd) {
+    background-color: #f0d9b5;
+    color: #b58863;
+}
+
+cb-square {
+    float: left;
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    width: 60px;
+    height: 60px;
+}
