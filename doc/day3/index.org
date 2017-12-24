@@ -1,0 +1,253 @@
+* Day 3
+
+Yesterday, we learned about commands by implementing a chess board that makes random moves.  Today, we will refactor our code by putting the board-related code into its own module, managing its own state by composing views and models.
+
+** Refactoring the board view
+
+Let's move the board view function into its own module ~src/Board.ml~:
+
+#+BEGIN_SRC ocaml
+open Tea
+open Tea.Html
+
+
+type model =
+  { orientation : Chess.color
+  }
+
+type msg =
+  | Flip
+
+
+let init () =
+  { orientation = Chess.White
+  }
+
+
+let update model = function
+  | Flip ->
+    let orientation' = Chess.opposite_color model.orientation in
+    { orientation = orientation'
+    }, Cmd.none
+
+let result_view result =
+  p []
+    [ begin match result with
+        | Chess.Win White -> "White wins by checkmate!" 
+        | Chess.Win Black -> "Black wins by checkmate!"
+        | Chess.Draw -> "The game is a draw!"
+        | Chess.Play move_list ->
+          List.length move_list
+          |> Printf.sprintf "There are %d legal moves in this position!"
+      end |> text
+    ]
+
+
+let buttons_view =
+  [ button [onClick Flip] [text "flip board"]
+  ]
+
+
+let view pos_ar model =
+  let files, ranks =
+    match model.orientation with
+    | White -> [0; 1; 2; 3; 4; 5; 6; 7], [7; 6; 5; 4; 3; 2; 1; 0]
+    | Black -> [7; 6; 5; 4; 3; 2; 1; 0], [0; 1; 2; 3; 4; 5; 6; 7] in
+
+  let rank_view rank =
+    let square_view rank file =
+      node "cb-square" []
+        [ match pos_ar.(file).(rank) with
+          | Chess.Piece (piece_type, color) ->
+            node "cb-piece"
+              [ classList
+                  [ Chess.string_of_color color, true
+                  ; Chess.string_of_piece_type piece_type, true
+                  ]
+              ] []
+          | Chess.Empty -> noNode
+        ] in
+    List.map (square_view rank) files
+    |> node "cb-row" [] in
+
+  List.map rank_view ranks
+  |> node "cb-board" []
+#+END_SRC
+
+This code should look very familiar.  Its structure is the same as ~src/Main.ml~.  We let the board define its own model, its own message type, its own update function and its own view.  I made a design choice here by letting the board manage its own orientation, but not the position, so that the board doesn't need to know about chess rules.
+
+Nowever, when we try to use the board view inside of ~src/Main.ml~, we run into a problem.  Let's say we adjust our model, and we have the following ~view~ function (ignore ~msg~ and ~update~ for now):
+
+#+BEGIN_SRC ocaml
+type model =
+  { position : Chess.position
+  ; board : Board.model
+  }
+
+let init () =
+  { position = Chess.init_position
+  ; board = Board.init ()
+  }, Cmd.none
+
+let view model =
+  div []
+    [ Board.view model.position.ar model.board
+    ; Board.buttons_view @
+       [ button [onClick Random_button] [text "random move"]
+       ]
+       |> p []
+    ; Chess.game_status model.position |> Board.result_view 
+    ]
+#+END_SRC
+
+The build script will complain along the lines of:
+#+BEGIN_SRC 
+  We've found a bug for you!
+  /Users/daniel/Playground/tea-chess/src/Main.ml 50:10-60
+  
+  48 ┆   |> map board_msg
+  49 ┆ ;  Board.buttons_view @
+  50 ┆    [ button [onClick Random_button] [text "random move"]
+  51 ┆    ]
+  52 ┆    |> p []
+  
+  This has type:
+    msg Vdom.t
+  But somewhere wanted:
+    Board.msg Vdom.t
+  
+  The incompatible parts:
+    msg
+    vs
+    Board.msg
+#+END_SRC
+
+The cause of this error is that ~Board.view~ will trigger messages of a different type, namely ~Board.msg~.  We can solve this problem by /tagging/ messages from subviews, i.e. adding a variant to our ~msg~ type as follows:
+
+#+BEGIN_SRC ocaml
+type msg =
+  | Board_msg of Board.msg
+  | Random_button
+  | Random_move of Chess.move
+[@@bs.deriving {accessors}]
+#+END_SRC
+
+Now we can tag the messages that view functions in ~Board~ will send by wrapping them in ~Board_msg~.  This is achieved by using the function ~map~, defined in ~Tea.App~, so I put ~open Tea.App~ at the top of the file to save some keystrokes.   Its type is ~('a -> 'b) -> 'a Vdom.t -> 'b Vdom.t~, hence it takes a function that maps from message type ~'a~ to message type ~'b~ and returns a function that maps from a virtual DOM element triggering messages of type ~'a~ to a virtual DOM element triggering messages of type ~'b~.  All this becomes clear if you remember that a view function returns message-triggering virtual DOM elements.
+
+#+BEGIN_SRC ocaml
+let view model =
+  div []
+    [ Board.view model.position.ar model.board
+      |> map board_msg
+    ; List.map (map board_msg) Board.buttons_view @
+      [ button [onClick Random_button] [text "random move"]
+      ]
+      |> p []
+    ; Chess.game_status model.position |> Board.result_view 
+    ]
+#+END_SRC
+
+Notice how we need to use ~List.map~ to map every single button from ~Board.buttons_view~, and also notice how again the constructor functions come in handy.
+
+When a message from the board comes in, we need to relay the message back to ~Board.update~.  Then we can update the model by replacing the old board model with the new board model.  In case the board issues any commands, we should also tag these by using ~Cmd.map~.  This works in a very similar way to tagging messages.  The relevant part in our ~update~ function that needs to be changed is:
+
+#+BEGIN_SRC ocaml
+let update model = function
+  | Board_msg msg ->
+    let board', cmd = Board.update model.board msg in
+    { model with
+      board = board'
+    }, Cmd.map board_msg cmd
+#+END_SRC
+
+The rest can be left unchanged as it doesn't deal with the board.  If nothing went wrong, your program should be functional again and display the same board as before, with the difference that now the "flip board" button is handled inside ~src/Board.ml~.
+
+** A list of independent board views
+
+Let's go a little crazy and replace our chessboard by a list of chessboard views, where every board can be fipped independently, but all share the same position and are updated when the "random move" button is clicked.  Let's change our model and add some messages:
+
+#+BEGIN_SRC ocaml
+type model =
+  { position : Chess.position
+  ; boards : Board.model list
+  }
+
+type msg =
+  | Board_msg of int * Board.msg
+  | Random_button
+  | Random_move of Chess.move
+  | Add_board
+  | Delete_board of int
+[@@bs.deriving {accessors}]
+
+let init () =
+  { position = Chess.init_position
+  ; boards = [Board.init ()]
+  }, Cmd.none
+#+END_SRC
+
+The view is easily adapted as follows:
+
+#+BEGIN_SRC ocaml
+let view model =
+  let board_view i board =
+    div []
+      [ Board.view model.position.ar board |>
+        map (board_msg i)
+      ; (button [onClick (Delete_board i)] [text "delete board"]
+         ::List.map (map (board_msg i)) Board.buttons_view)
+        |> p []
+      ] in
+  ([ button [onClick Random_button] [text "random move"]
+   ; button [onClick Add_board] [text "add board"]
+   ] |> p []
+  )::List.mapi board_view model.boards
+  |>  div []
+#+END_SRC
+
+Notice that we use ~List.mapi~ to enumerate the boards as well as their indices so we are able to tag their messages properly.  We use ~board_msg i~ as a partially applied function here.
+
+Your program should compile like this, but the build script will complain that you didn't handle all the cases in the ~update~ function.  You can always put a "catch-all" case at the end of the ~match~ construct like this when you decide you will implement functionality later, like this:
+
+#+BEGIN_SRC ocaml
+let update model = function
+
+  ...
+
+  | _ -> model, Cmd.none
+#+END_SRC
+
+But let's just handle the remaining cases right now.  
+For relaying of board messages and deletion of boards, we need some simple helper functions:
+
+#+BEGIN_SRC ocaml
+let replace_nth n item list =
+  List.mapi
+    (fun i x -> if i = n then item else x) list
+
+let rec delete_nth n list =
+  match list with
+  | [] -> []
+  | _hd::tl when n = 0 -> tl
+  | hd::tl -> hd::delete_nth (n - 1) tl
+
+let update model = function
+  | Board_msg (i, msg) ->
+    let board', cmd = Board.update (List.nth model.boards i) msg in
+    { model with
+      boards = replace_nth i board' model.boards
+    }, Cmd.map (board_msg i) cmd
+
+  ...
+
+  | Add_board ->
+    { model with
+      boards = Board.init ()::model.boards
+    }, Cmd.none
+  | Delete_board i ->
+    { model with
+      boards = delete_nth i model.boards
+    }, Cmd.none
+#+END_SRC
+
+Head to your browser and add some boards, flip their orientation around, make random moves and watch them appear on all boards simultaneously.  This concludes today's part of the tutorial.  I implemented the board list in its own branch in my repository, because tomorrow we will go back to only one board.  We will implement drag and drop so you can finally make moves yourself.
