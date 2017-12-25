@@ -1,6 +1,4 @@
-#+TITLE: Twelve Days of Christmas 2017/18
-
-* A chess-themed tutorial for writing an SPA in Bucklescript-TEA
+* [[https://quernd.github.io/tutorials/tea-chess][A chess-themed tutorial for writing an SPA in Bucklescript-TEA]]
 
 I recently started frontend web development in OCaml by using
 [[https://bucklescript.github.io/][Bucklescript]] to compile my code into Javascript. Naturally, a
