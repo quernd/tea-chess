@@ -1,38 +1,49 @@
 * Day 1
 
 ** First things first
-Before you can start, you need a working copy of Yarn (or NPM).
-Additionally, I advise you to [[https://opam.ocaml.org/doc/Install.html][install OPAM]] in order to be able to use
-the excellent [[https://github.com/ocaml/merlin][Merlin]] tool for an [[https://opam.ocaml.org/blog/turn-your-editor-into-an-ocaml-ide/][IDE-like experience in your editor]].
-More on this topic will follow shortly.
+Before you can start, make sure you have the following installed:
 
-Let's start by setting up the directory structure. Arguably the
-easiest way is to just clone the [[https://github.com/tcoopman/bucklescript-tea-starter-kit][Bucklescript-TEA starter kit]], copy
-the relevant files into a fresh repository, or just follow along with
-my code. I used [[http://www.fossil-scm.org/][Fossil]] for version
-control and host this project myself.  I also maintain [[https://www.github.com/quernd/tea-chess][a mirror on
-Github]], of course.  If you check out any of these two, start from the tag
-~initial~.
+- [[https://nodejs.org/][Node.js]] and optionally [[https://yarnpkg.com/][Yarn]]. Bucklescript piggybacks on the [[https://www.npmjs.com/][NPM
+  package database]], and I'm afraid I don't know how to do Bucklescript
+  development without it. I prefer Yarn as an interface to NPM and use
+  Yarn commands throughout this tutorial, but if you are already using
+  NPM, it will work just as fine.
 
-You will notice that
+- [[https://opam.ocaml.org/doc/Install.html][OPAM]], the OCaml package manager.  You can use Bucklescript without
+  OPAM, but I strongly recommend you to use the excellent [[https://github.com/ocaml/merlin][Merlin]] tool
+  for an [[https://opam.ocaml.org/blog/turn-your-editor-into-an-ocaml-ide/][IDE-like experience in your editor]].  If you want to explore
+  server-side OCaml as well, OPAM will allow you to switch between
+  different versions of OCaml packages for server-side and client-side
+  development seamlessly.
+
+Let's setup a project directory structure. Arguably the easiest way is
+to just clone the [[https://github.com/tcoopman/bucklescript-tea-starter-kit][Bucklescript-TEA starter kit]], copy the relevant
+files into a fresh repository, or just follow along with [[https://www.github.com/quernd/tea-chess][my
+repository]]. (I actually used [[http://www.fossil-scm.org/][Fossil]] for local version control, and I
+encourage you to use any version control system that you are
+comfortable with). If you follow along my code, start from the tag
+~initial~ by typing ~git checkout initial~.
+
+Take a look at the files in the starter kit. You will notice that
 ~package.json~ lists a few dependencies for local development and
 defines build and watch scripts. Furthermore, ~bsconfig.json~ contains
-a few instructions for the Bucklescript compiler. Your OCaml source
-code will go in the ~src~ directory, and the compiled Javascript will
-go into ~release~.  Edit ~package.json~ and ~bsconfig.json~ for a
-better package name (e.g. ~tea-chess~). 
+instructions for the Bucklescript compiler. Your OCaml source code
+will go in the ~src~ directory, and the compiled Javascript will be
+put into ~release~ by the build script. Why don't you edit
+~package.json~ and ~bsconfig.json~ for a better package name (e.g.
+~tea-chess~)?
 
-Run ~yarn install~ (or ~npm install~) to install the dependencies. (If
-you don't have a working installation of ~yarn~ or ~npm~ yet, now is
-the time to address that. I'm afraid I don't know how to do
-Bucklescript development without it.)  If you have installed
-~bs-platform~ globally before (like I did with ~yarn global add
-install bs-platform --offline~), try linking it with ~yarn link~ (in its
-global location) and ~yarn link bs-platform~ in your project directory.
+Now run ~yarn install~ (or ~npm install~) to install the dependencies.
+The main Bucklescript package ~bs-platform~ is pretty hefty (it brings
+its own OCaml compiler) and takes a while to setup, so I installed it
+globally with ~yarn global add install bs-platform --offline~. This
+way, I can just link it with ~yarn link~ (in its global location) and
+then ~yarn link bs-platform~ in your project directory whenever I
+start a Bucklescript project to save time and bandwidth.
 
-Now run ~yarn run watch~. You should see the build script work to
-compile OCaml code into Javascript and
-eventually display something like the following:
+You are now ready to run ~yarn run watch~. You should see the build
+script work to compile OCaml code into Javascript and eventually
+display something like the following:
 
 #+BEGIN_SRC
 rollup v0.52.3
@@ -55,23 +66,22 @@ created release/main.js in 1.3s
 [2017-12-23 21:39:55] waiting for changes...
 #+END_SRC
 
-Congratulations!  Visit the placeholder page in your web browser and
-play with the counters example a little.
-Whenever you make changes to your code, as soon as you save the file,
-the build script will notice and recompile your code, and the new
-javascript code will even
-be "hot-reloaded" in your browser!  Whenever something goes wrong, you
-will find a helpful error message displayed.
+Congratulations! Visit the page in your web browser and play with the
+counters example a little. Whenever you make changes to your code, as
+soon as you save the file, the build script will notice and recompile
+your code, and the new javascript code will even be "hot-reloaded" in
+your browser! Whenever something goes wrong, you will find a helpful
+error message displayed.
 
 If you are extraordinarily attentive, you may have noticed that there
-is a new file ~.merlin~ in the root level of your project. This will
-tell the extremely useful [[https://github.com/ocaml/merlin][Merlin]] tool where to find your source code
-and intermediate files so it can help you with type annotations. I
-strongly urge you to use an editor that integrates Merlin. I use
-Emacs, but you can also use other editors with Merlin. I know at least
-that Vim, Atom, Sublime Text and VS Code support Merlin.  If you use
-OPAM to maintain different versions of the OCaml compiler, make sure
-that Merlin is setup to work with the Bucklescript version.
+is a new file ~.merlin~ in the root level of your project. This file
+will tell the extremely useful [[https://github.com/ocaml/merlin][Merlin]] tool where to find your source
+code and intermediate files so it can help you with type annotations.
+I strongly encourage you to use an editor that integrates Merlin. I
+use [[https://github.com/ocaml/merlin/wiki/emacs-from-scratch][Emacs]], but you can also use other editors with Merlin, such as
+[[https://github.com/ocaml/merlin/wiki/vim-from-scratch][Vim]], [[https://github.com/ocaml/merlin/wiki/atom-from-scratch][Atom]], or [[https://github.com/hackwaly/vscode-ocaml][VS Code]]. If you use OPAM to maintain different versions
+of the OCaml compiler, make sure that Merlin is setup to work with the
+Bucklescript version.
 
 ** The Elm architecture
 
@@ -79,32 +89,29 @@ Open ~src/Main.ml~ and take a look at the code. Now, if you are
 familiar with the "Elm architecture", made popular by the Elm language
 of Evan Czaplicki, you will recognize the typical /msg/, /model/,
 /update/, and /view/ definitions. Essentially, Bucklescript-TEA
-provides an API similar to that of Elm's. I'm not going to provide a thorough
+provides an API similar, if not almost compatible, to that of Elm's. I'm not going to provide a thorough
 discussion in case you haven't worked with the Elm architecture before.  There are lots of resources online that do a better job I
 ever could do.  For instance, check out the [[https://guide.elm-lang.org/architecture/][official tutorial]]. However, the Elm architecture is pretty simple to
 grasp if all you remember is this:
 
-1. your program state is represented by a /model/;
-2. whenever stuff happens (user clicks a button, AJAX data comes in,
-   etc.), this causes a /message/ to be sent to your program;
-3. the /update/ function receives this /message/ and the current
-   /model/ and returns a new /model/;
-4. the /view/ function is then called on the /model/ and returns a
-   virtual DOM tree (which behind the scenes is rendered to the
-   screen) and a recipe for any side effects that it would like to
-   execute (called a /command/);
-5. side effects are managed behind the scenes to ensure that your
+1. Your program state is represented by a /model/.
+2. Whenever stuff happens (user clicks a button, AJAX data comes in,
+   etc.), the /update/ function receives a /message/ and the current
+   /model/ and returns a new /model/.
+3. The /view/ function computes a
+   virtual DOM tree from the model (which is rendered to the
+   screen) and a recipe for any side effects that you would like to
+   execute (called a /command/).
+4. Side effects are managed behind the scenes to ensure that your
    functions stay pure; when a side effect is actually executed, it
-   gets boxed into a /message/ and fed into the event loop;
-6. additionally, your program can listen to /subscriptions/ to receive messages
+   gets boxed into a /message/.  In addition to commands, your program
+   can listen to /subscriptions/ to receive messages
    on events such as mouse and keyboard events, websockets, and time.
 
-To understand what makes Merlin so great, in addition to catching
-errors, move your cursor to any function or variable name. If you're using Emacs,
-press @@html:<kbd>C-c C-t</kbd>@@, and Merlin will tell you the type
-of this name.  If you are allready quite comfortable with types, try using Merlin to examine the
-types of the various functions defined in this code to see how this
-works under the hood:
+If you installed Merlin, you can use it to examine the types of the
+functions involved in the Elm Architecture. For instance, if you're
+using Emacs, press @@html:<kbd>C-c C-t</kbd>@@, and Merlin will tell
+you the type of the function name at the point (cursor):
 
 - ~init~ has type ~unit -> int~, hence our model is of type ~int~.
 - ~update~ is of type ~int -> msg -> int~, meaning it takes a model
@@ -123,9 +130,11 @@ works under the hood:
 
 Of course, OCaml will be extremely strict to enforce correct types, so
 whenever you make a type-related mistake, it will refuse to compile
-your code,
-but on the other hand it will infer almost every type automatically,
-leaving you without the need to explicitly annotate types.
+your code. This may sound painful, but I find that not only does it
+catch zillions of bugs before they hit the user, it also really helps
+with refactoring. Also, OCaml will infer almost every type
+automatically, leaving you without the need to explicitly annotate
+types.
 
 ** Starting from (almost) scratch
 
@@ -138,8 +147,10 @@ this case is just an integer.  The counter should automatically update
 in your browser.  Play with the example or examine the code if you
 want to learn about the basics of the Elm architecture and Bucklescript-TEA.
 
-Now, let's get rid of the counter example and start adding our own
-code.  I stripped down the /model-update-view/ loop in ~src/Main.ml~:
+Now, let's get rid of the counter example because that doesn't have
+anything to do with chess, and start adding our own
+code.  I stripped down the /model-update-view/ loop in ~src/Main.ml~
+and added the basics of a chess-related model:
 
 #+BEGIN_SRC ocaml
 open Tea
@@ -184,19 +195,20 @@ let main =
     }
 #+END_SRC
 
-Here, we define our model as an OCaml record with one field
+Our model is an OCaml record with one field
 ~orientation~, taking its value from a variant type ~color~ to
 represent from which side we will see the chessboard.  We
 define one message called ~Flip~, that when received, will flip the
 orientation of the chessboard around.
 
 Notice how we're now using ~standardProgram~ instead of beginner
-program.  Hooray, you're not a beginner anymore!  This means our ~init~ function needs to return an initial model as
-well as a command to be executed on startup.  We choose ~Cmd.none~ (no
-command), just like we define ~subscriptions~ to return ~Sub.none~
-regardless of the model.  /Subscriptions/ are used to listen for
-events such as mouse and keyboard events.  You will learn about them
+program.  Hooray, you're not a beginner anymore!  This means we will
+be able to listen for subscriptions such as mouse and keyboard events.  You will learn about them
 when we implement drag and drop to make moves on the chessboard.
+Right now, we choose ~Sub.none~ to express that we are not interested
+in any subscriptions yet, regardless of the model. Similarly, we don't
+want to issue any commands, so we return ~Cmd.none~ along with the
+model everytime.
 
 Also notice that
 #+BEGIN_SRC ocaml
@@ -209,6 +221,7 @@ let update model msg =
   match msg with
   | Flip ->
 #+END_SRC
+because ~function~ has built-in pattern-matching.
 
 ** Your first view function
 
@@ -241,6 +254,8 @@ let view model =
     ; button [onClick Flip] [text "flip board"]
     ]
 #+END_SRC 
+
+This might be a little hard to digest, so here's what happens:
 
 A chessboard has 8 rows called "ranks", and 8 columns called "files".
 Ranks are numbered, while files are referred to by a letter, so we
@@ -360,7 +375,6 @@ We use ~node~ (defined in ~Tea.Html~) to define our custom tags.  You
 should now see a nice-looking chessboard.  Just a small problem: still
 no pieces!  Tomorrow, we will add pieces and teach our program to make
 random moves on the board.
-
 
 
 [fn:1] There is also [[https://github.com/ornicar/chessground][Chessground]], used by the famous open-source,
