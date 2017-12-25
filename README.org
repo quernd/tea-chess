@@ -1,4 +1,4 @@
-* [[https://quernd.github.io/tutorials/tea-chess][A chess-themed tutorial for writing an SPA in Bucklescript-TEA]]
+* [[https://quernd.github.io/tutorials/tea-chess][A chess-themed tutorial on writing an SPA in Bucklescript-TEA]]
 
 I recently started frontend web development in OCaml by using
 [[https://bucklescript.github.io/][Bucklescript]] to compile my code into Javascript. Naturally, a
