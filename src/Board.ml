@@ -19,8 +19,15 @@ type dragging = { turn : color
                 ; size : size
                 }
 
+type promoting = { turn : color
+                 ; source_file : file
+                 ; target_file : file
+                 ; size : size
+                 }
+
 type status =
   | Dragging of dragging
+  | Promoting of promoting
   | Nothing
 [@@bs.deriving {accessors}]
 
@@ -39,6 +46,8 @@ type internal_msg =
   | Move_start of dragging
   | Move_drag of Mouse.position
   | Move_drop of Mouse.position
+  | Promotion_canceled
+  | Piece_promoted of piece_type
 [@@bs.deriving {accessors}]
 
 type msg =
@@ -125,7 +134,14 @@ let update model = function
               | Completed_move move ->
                 {model with status = Nothing}, Cmd.msg (Move move)
               | Pawn_will_promote ->
-                {model with status = Nothing}, Cmd.none
+                {model with
+                 status = Promoting
+                     { turn = drag.turn
+                     ; source_file = fst drag.source
+                     ; target_file = fst target
+                     ; size = drag.size
+                     }},
+                Cmd.none
               with Not_found -> {model with status = Nothing}, Cmd.none
             end
           | None -> {model with status = Nothing}, Cmd.none
@@ -176,7 +192,7 @@ let buttons_view =
   ]
 
 
-let view interactable pos_ar model =
+let board_view interactable pos_ar model =
 
   let move_start =
     match interactable with
@@ -260,6 +276,45 @@ let view interactable pos_ar model =
 
   List.map rank_view ranks
   |> node "cb-board" []
+
+
+let view interactable pos_ar model =
+  let promo_view promoting =
+    let file = promoting.target_file in
+    let left, tops =
+      (match model.orientation, promoting.turn with
+       | White, White -> file, [0; 1; 2; 3]
+       | White, Black -> file, [7; 6; 5; 4]
+       | Black, White -> 7 - file, [7; 6; 5; 4]
+       | Black, Black -> 7 - file, [0; 1; 2; 3]
+      ) in
+    node "cb-promo"
+      [Internal_msg Promotion_canceled |> onClick]
+      (List.combine tops  (* List.combine is like Python's `zip' *)
+         [Queen; Knight; Rook; Bishop]
+       |> List.map (fun (top, piece_type) ->
+           node "cb-square"
+             [ styles
+                 [ "left", Printf.sprintf "%dpx" (left * promoting.size)
+                 ; "top", Printf.sprintf "%dpx" (top * promoting.size)
+                 ]
+             ]
+             [ node "cb-piece"
+                 [ Internal_msg (Piece_promoted piece_type) |> onClick
+                 ; classList
+                     [ Chess.string_of_color promoting.turn, true
+                     ; Chess.string_of_piece_type piece_type, true
+                     ]
+                 ] []         
+             ])
+      ) in
+
+  node "cb-wrap" []
+    [ begin match model.status with
+        | Promoting promoting -> promo_view promoting
+        | _ -> noNode end
+    ; board_view interactable pos_ar model
+    ]
 
 
 let subscriptions model = match model.status with
