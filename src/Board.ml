@@ -208,7 +208,23 @@ let view interactable pos_ar model =
 
   let rank_view rank =
     let square_view rank file =
-      node "cb-square" []
+
+      let target_highlight drag target =
+        match drag.target with
+        | Some square when square = target -> true
+        | _ -> false
+      and legal_highlight drag target = List.exists
+          (fun (square, _) -> square = target) drag.legal_targets in
+
+      node "cb-square"
+        [ match model.status with
+          | Dragging drag ->
+            classList
+              [ "destination", legal_highlight drag (file, rank)
+              ; "hovering", target_highlight drag (file, rank)
+              ]
+          | _ -> noProp
+        ]
         [ match pos_ar.(file).(rank) with
           | Chess.Piece (piece_type, color) ->
             let listener =
