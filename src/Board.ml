@@ -22,10 +22,12 @@ type dragging = { turn : color
 type status =
   | Dragging of dragging
   | Nothing
+[@@bs.deriving {accessors}]
 
 type interactable =
   | Not_interactable
   | Interactable of color * move list
+[@@bs.deriving {accessors}]
 
 type model =
   { orientation : color
@@ -79,13 +81,57 @@ let handler decoder msg event =
   | Error _ -> None 
 
 
+let target orientation drag =
+  let x' = drag.coordinates.x - drag.initial.x + drag.offset.x 
+  and y' = drag.coordinates.y - drag.initial.y + drag.offset.y in
+  let x = if x' < 0 then x' - drag.size else x' 
+  and y = if y' < 0 then y' - drag.size else y' in
+  let i, ii = drag.source in 
+  let i', ii' = match orientation with
+    | White -> i + (x / drag.size), ii - (y / drag.size)
+    | Black -> i - (x / drag.size), ii + (y / drag.size) in
+  if i' >= 0 && i' <= 7 && ii' >= 0 && ii' <= 7
+  then Some (i', ii')
+  else None
+
+let adjust_coordinates orientation coordinates drag =
+  { drag with 
+    coordinates
+  ; target = target orientation drag }
+
+
 let update model = function
-  | Internal_msg Flip ->
-    let orientation' = Chess.opposite_color model.orientation in
-    { model with
-      orientation = orientation'
-    }, Cmd.none
-  | Internal_msg (Move_start info) -> Js.log info; model, Cmd.none
+  | Internal_msg msg ->
+    begin match msg, model.status with
+      | Flip, _ ->
+        let orientation' = Chess.opposite_color model.orientation in
+        { model with
+          orientation = orientation'
+        }, Cmd.none
+      | Move_start drag, _ ->
+        { model with
+          status = Dragging drag
+        }, Cmd.none
+      | Move_drag coordinates, Dragging drag ->
+        { model with
+          status =
+            adjust_coordinates model.orientation coordinates drag
+            |> dragging
+        }, Cmd.none
+      | Move_drop _, Dragging drag ->
+        begin match drag.target with
+          | Some target ->
+            begin try match List.assoc target drag.legal_targets with
+              | Completed_move move ->
+                {model with status = Nothing}, Cmd.msg (Move move)
+              | Pawn_will_promote ->
+                {model with status = Nothing}, Cmd.none
+              with Not_found -> {model with status = Nothing}, Cmd.none
+            end
+          | None -> {model with status = Nothing}, Cmd.none
+        end
+      | _ -> model, Cmd.none
+    end
   | _ -> model, Cmd.none
 
 let result_view result =
@@ -185,3 +231,12 @@ let view interactable pos_ar model =
 
   List.map rank_view ranks
   |> node "cb-board" []
+
+
+let subscriptions model = match model.status with
+  | Dragging _ ->
+    Sub.batch 
+      [ Mouse.moves (fun x -> Internal_msg (Move_drag x))
+      ; Mouse.ups  (fun x -> Internal_msg (Move_drop x))
+      ]
+  | _ -> Sub.none

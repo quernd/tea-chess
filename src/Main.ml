@@ -21,8 +21,8 @@ let init () =
 
 
 let update model = function
-  | Board_msg msg ->
-    let board', cmd = Board.update model.board msg in
+  | Board_msg (Internal_msg msg) ->
+    let board', cmd = Board.update model.board (Internal_msg msg) in
     { model with
       board = board'
     }, Cmd.map board_msg cmd
@@ -37,7 +37,7 @@ let update model = function
              List.nth move_list random_number |> random_move)
       | _ -> Cmd.none
     end
-  | Random_move move ->
+  | Random_move move | Board_msg (Move move) ->
     { model with
       position = Chess.make_move model.position move 0 }, Cmd.none
 
@@ -60,8 +60,8 @@ let view model =
     ]
 
 
-let subscriptions _model =
-  Sub.none
+let subscriptions model =
+  Board.subscriptions model.board |> Sub.map board_msg
 
 
 let main =
