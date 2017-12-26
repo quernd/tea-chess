@@ -36,6 +36,21 @@ cb-square {
     height: 60px;
 }
 
+cb-square.destination {
+  background-image: radial-gradient(rgba(20,85,30,0.3) 22%, #208530 0, rgba(0,0,0,0.3) 0, rgba(0,0,0,0) 0);
+}
+cb-square.destination:not(:empty) {
+  background-image: radial-gradient(transparent 0%, transparent 80%, rgba(20,85,0,0.3) 80%);
+}
+cb-square.destination.hovering {
+  background-image: linear-gradient(rgba(20,85,30,0.3), rgba(20,85,30,0.3));
+  cursor: pointer;
+}
+
+cb-piece.ghost {
+    opacity: 0.25;
+}
+
 cb-piece {
     position: absolute;
     bottom: 0;
@@ -83,3 +98,4 @@ cb-piece.black.knight {
 cb-piece.black.pawn {
     background-image: url("/img/pieces/bP.svg");
 }
+

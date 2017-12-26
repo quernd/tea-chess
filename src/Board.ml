@@ -216,9 +216,22 @@ let view interactable pos_ar model =
                 | Some (f, turn) when color = turn -> 
                   onCB "mousedown" ""
                     (handler offset_page_size (f file rank))
-                | _ -> noProp end in
+                | _ -> noProp end
+            and styles =
+              begin match model.status with 
+                | Dragging drag when (file, rank) = drag.source ->
+                  styles [ "z-index", "9"
+                         ; "transform",
+                           Printf.sprintf "translate(%dpx,%dpx)" 
+                             (drag.offset.x - (drag.size / 2) 
+                              + drag.coordinates.x - drag.initial.x)
+                             (drag.offset.y - (drag.size / 2) 
+                              + drag.coordinates.y - drag.initial.y) ]
+                | _ -> noProp end
+            in
             node "cb-piece"
               [ listener
+              ; styles
               ; classList
                   [ Chess.string_of_color color, true
                   ; Chess.string_of_piece_type piece_type, true
