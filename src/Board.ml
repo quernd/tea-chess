@@ -146,6 +146,12 @@ let update model = function
             end
           | None -> {model with status = Nothing}, Cmd.none
         end
+      | Promotion_canceled, _ -> {model with status = Nothing}, Cmd.none
+      | Piece_promoted piece_type, Promoting promoting ->      
+        let move = Promotion (piece_type,
+                              promoting.source_file,
+                              promoting.target_file) in
+        {model with status = Nothing}, Cmd.msg (Move move)
       | _ -> model, Cmd.none
     end
   | _ -> model, Cmd.none
