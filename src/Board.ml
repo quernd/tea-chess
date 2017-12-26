@@ -5,19 +5,18 @@ open Chess
 
 type size = int
 
-type partial_move =
-  | CompletedMove of move
-  | PawnWillPromote
+type move' =
+  | Completed_move of move
+  | Pawn_will_promote
 
 type dragging = { turn : color
                 ; source : square
                 ; target : square option
-                ; legal_targets : (square * partial_move) list
+                ; legal_targets : (square * move') list
                 ; initial : Mouse.position
                 ; offset : Mouse.position
                 ; coordinates : Mouse.position
                 ; size : size
-                ; orientation : color
                 }
 
 type status =
