@@ -43,14 +43,20 @@ let update model = function
 
 
 let view model =
+  let game_status = Chess.game_status model.position in
+  let interactable =
+    match game_status with
+    | Play move_list -> Board.Interactable (model.position.turn, move_list)
+    | _ -> Board.Not_interactable
+  in
   div []
-    [ Board.view model.position.ar model.board
+    [ Board.view interactable model.position.ar model.board
       |> map board_msg
     ; List.map (map board_msg) Board.buttons_view @
       [ button [onClick Random_button] [text "random move"]
       ]
       |> p []
-    ; Chess.game_status model.position |> Board.result_view 
+    ; Board.result_view game_status
     ]
 
 

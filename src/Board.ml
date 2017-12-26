@@ -50,6 +50,34 @@ let init () =
   ; status = Nothing
   }
 
+let cartesian_decoder field_x field_y =
+  let open Json.Decoder in
+  let open Mouse in
+  map2 (fun x y -> {x; y})
+    (field field_x int)
+    (field field_y int)
+
+let page =
+  cartesian_decoder "pageX" "pageY"
+  |> Json.Decoder.decodeEvent
+
+let offset_page_size =
+  let open Json.Decoder in
+  let size = field "clientWidth" int in
+  map3
+    (fun a b c -> a, b, c)
+    (cartesian_decoder "offsetX" "offsetY")
+    (cartesian_decoder "pageX" "pageY")
+    (field "target" size)
+  |> decodeEvent
+
+let handler decoder msg event =
+  let open Result in
+  let result = decoder event in
+  match result with
+  | Ok result -> Some (msg result)
+  | Error _ -> None 
+
 
 let update model = function
   | Internal_msg Flip ->
@@ -57,6 +85,7 @@ let update model = function
     { model with
       orientation = orientation'
     }, Cmd.none
+  | Internal_msg (Move_start info) -> Js.log info; model, Cmd.none
   | _ -> model, Cmd.none
 
 let result_view result =
@@ -72,12 +101,60 @@ let result_view result =
     ]
 
 
+let filter_targets source moves =
+  List.filter (fun (s, _t, _m) -> s = source) moves
+  |> List.map (fun (_s, t, m) -> t, m)
+
+
+let coordinate_pairs turn move =
+  let home_rank = function White -> 0 | Black -> 7 in
+  match move with
+  | Queenside_castle ->
+    (4, home_rank turn), (2, home_rank turn),
+    Completed_move Queenside_castle
+  | Kingside_castle ->
+    (4, home_rank turn), (6, home_rank turn),
+    Completed_move Kingside_castle
+  | Promotion (_piece_type, s_file, t_file) ->
+    let promotion_rank = function White -> 7 | Black -> 0
+    and pre_promotion_rank = function White -> 6 | Black -> 1 in
+    (s_file, pre_promotion_rank turn), (t_file, promotion_rank turn),
+    Pawn_will_promote
+  | Move (s_file, s_rank, t_file, t_rank) -> 
+    (s_file, s_rank), (t_file, t_rank),
+    Completed_move (Move (s_file, s_rank, t_file, t_rank))
+
+
 let buttons_view =
   [ button [onClick (Internal_msg Flip)] [text "flip board"]
   ]
 
 
-let view pos_ar model =
+let view interactable pos_ar model =
+
+  let move_start =
+    match interactable with
+    | Interactable (turn, legal_moves) ->
+      Some ((fun file rank (offset, coordinates, size) ->
+          Internal_msg
+            (Move_start
+               { turn
+               ; source = (file, rank)
+               ; target = None
+               ; legal_targets =
+                   legal_moves
+                   |> List.map (coordinate_pairs turn)
+                   |> filter_targets (file, rank) 
+               ; initial = coordinates
+               ; offset
+               ; coordinates
+               ; size
+               }
+            )
+        ), turn)
+    | Not_interactable -> None
+  in
+
   let files, ranks =
     match model.orientation with
     | White -> [0; 1; 2; 3; 4; 5; 6; 7], [7; 6; 5; 4; 3; 2; 1; 0]
@@ -88,8 +165,15 @@ let view pos_ar model =
       node "cb-square" []
         [ match pos_ar.(file).(rank) with
           | Chess.Piece (piece_type, color) ->
+            let listener =
+              begin match move_start with
+                | Some (f, turn) when color = turn -> 
+                  onCB "mousedown" ""
+                    (handler offset_page_size (f file rank))
+                | _ -> noProp end in
             node "cb-piece"
-              [ classList
+              [ listener
+              ; classList
                   [ Chess.string_of_color color, true
                   ; Chess.string_of_piece_type piece_type, true
                   ]
