@@ -1,6 +1,6 @@
 * [[https://quernd.github.io/tutorials/tea-chess][A chess-themed tutorial on writing an SPA in Bucklescript-TEA]]
 
-I recently started frontend web development in OCaml by using
+I recently started frontend web development in [[https://ocaml.org/][OCaml]] by using
 [[https://bucklescript.github.io/][Bucklescript]] to compile my code into Javascript. Naturally, a
 functional language like OCaml goes well together with the famous [[https://guide.elm-lang.org/architecture/][Elm
 architecture]], so I chose to explore the recent [[https://github.com/OvermindDL1/bucklescript-tea][Bucklescript-TEA]]
@@ -16,8 +16,8 @@ app]], I decided to create an interactive chess board with move
 validation (supplied by an external library), drag and drop, move
 logging as well as take-backs. I also implemented a game tree
 representing alternative moves, by using a functional programming
-technique called the [[https://pavpanchekha.com/blog/zippers/huet.html]["zipper"]]. Finally, I added a REST backend (also
-in OCaml) for the frontend to talk to.
+technique called the [[https://pavpanchekha.com/blog/zippers/huet.html]["zipper"]]. Finally, I added functionality for
+talking to a REST backend.
 
 In this [[https://en.wikipedia.org/wiki/Twelve_Days_of_Christmas]["Twelve Days of Christmas"]] tutorial, I will walk you through
 the entire example, with version control snapshots along the way. It
