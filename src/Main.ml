@@ -5,18 +5,22 @@ open Tea.App
 type model =
   { position : Chess.position
   ; board : Board.model
+  ; moves : (Chess.move * string) list
   }
 
 type msg =
   | Board_msg of Board.msg
   | Random_button
+  | Takeback_button
   | Random_move of Chess.move
+  | Key_pressed of Keyboard.key_event
 [@@bs.deriving {accessors}]
 
 
 let init () =
   { position = Chess.init_position
-  ; board = Board.init () 
+  ; board = Board.init ()
+  ; moves = []
   }, Cmd.none
 
 
@@ -38,9 +42,26 @@ let update model = function
       | _ -> Cmd.none
     end
   | Random_move move | Board_msg (Move move) ->
+    let san = Chess.legal_moves_with_san model.position |> List.assoc move in
     { model with
-      position = Chess.make_move model.position move 0 }, Cmd.none
+      position = Chess.make_move model.position move
+    ; moves = (move, san)::model.moves
+    }, Cmd.none
+  | Takeback_button ->
+    begin match model.moves, model.position.prev with
+      | _::moves, Some position -> {model with moves; position}
+      | _ -> model
+    end, Cmd.none
+  | Key_pressed key_event -> Js.log key_event;
+    model,
+    begin match key_event.ctrl, key_event.key_code with
+      | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
+      | true, 84 (* Ctrl-t *) -> Cmd.msg Takeback_button
+      | _ -> Cmd.none
+    end
 
+let move_view (_move, san) =
+  li [class' "move"] [text san]
 
 let view model =
   let game_status = Chess.game_status model.position in
@@ -54,14 +75,18 @@ let view model =
       |> map board_msg
     ; List.map (map board_msg) Board.buttons_view @
       [ button [onClick Random_button] [text "random move"]
+      ; button [onClick Takeback_button] [text "take back"]
       ]
       |> p []
     ; Board.result_view game_status
+    ; List.rev_map move_view model.moves |> ul [class' "moves"]
     ]
 
 
 let subscriptions model =
-  Board.subscriptions model.board |> Sub.map board_msg
+  Sub.batch
+    [ Board.subscriptions model.board |> Sub.map board_msg
+    ; Keyboard.downs key_pressed ]
 
 
 let main =
