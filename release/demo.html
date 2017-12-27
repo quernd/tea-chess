@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>TEA Chess</title>
+    <link rel="stylesheet" type="text/css" href="css/main.css">
+    <style>div#demo {background-color:#f0f0f0; padding:.5em 1em .5em 1em;
+margin-bottom:1em} div#demo
+p {margin:0 0 .5em 0;} div#demo p:first-child {margin-top:.5em;}</style>
+  </head>
+
+
+  <body>
+    <div id="demo"><p>This is a demo for <a href="index.html">Day 1</a> of <a href="../index.html">a twelve-part chess-themed tutorial on writing an SPA</a> in <a href="https://github.com/OvermindDL1/bucklescript-tea">Bucklescript-TEA</a>.</p><p>
+Try flipping the board by pressing the buttons and see the coordinates
+on the board change.</p></div>
+    <div id="tea"></div>
+    <script src="main.js"></script>
+    <script>
+        setTimeout(function(){
+        var app = starter.main(document.getElementById("tea"));
+        }, 1)
+    </script>
+  </body>
+</html>
