@@ -13,6 +13,7 @@ type msg =
   | Random_button
   | Takeback_button
   | Random_move of Chess.move
+  | Key_pressed of Keyboard.key_event
 [@@bs.deriving {accessors}]
 
 
@@ -51,7 +52,13 @@ let update model = function
       | _::moves, Some position -> {model with moves; position}
       | _ -> model
     end, Cmd.none
-
+  | Key_pressed key_event -> Js.log key_event;
+    model,
+    begin match key_event.ctrl, key_event.key_code with
+      | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
+      | true, 84 (* Ctrl-t *) -> Cmd.msg Takeback_button
+      | _ -> Cmd.none
+    end
 
 let move_view (_move, san) =
   li [class' "move"] [text san]
@@ -77,7 +84,9 @@ let view model =
 
 
 let subscriptions model =
-  Board.subscriptions model.board |> Sub.map board_msg
+  Sub.batch
+    [ Board.subscriptions model.board |> Sub.map board_msg
+    ; Keyboard.downs key_pressed ]
 
 
 let main =
