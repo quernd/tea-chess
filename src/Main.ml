@@ -1,32 +1,31 @@
 open Tea
 open Tea.Html
-
-type color = Chess.color
+open Tea.App
 
 type model =
-  { orientation : color
-  ; position : Chess.position
+  { position : Chess.position
+  ; board : Board.model
   }
 
 type msg =
-  | Flip
+  | Board_msg of Board.msg
   | Random_button
   | Random_move of Chess.move
 [@@bs.deriving {accessors}]
 
 
 let init () =
-  { orientation = White
-  ; position = Chess.init_position
+  { position = Chess.init_position
+  ; board = Board.init () 
   }, Cmd.none
 
 
 let update model = function
-  | Flip ->
-    let orientation' = Chess.opposite_color model.orientation in
+  | Board_msg (Internal_msg msg) ->
+    let board', cmd = Board.update model.board (Internal_msg msg) in
     { model with
-      orientation = orientation'
-    }, Cmd.none
+      board = board'
+    }, Cmd.map board_msg cmd
   | Random_button ->
     model,
     begin match Chess.game_status model.position with
@@ -38,67 +37,35 @@ let update model = function
              List.nth move_list random_number |> random_move)
       | _ -> Cmd.none
     end
-  | Random_move move ->
+  | Random_move move | Board_msg (Move move) ->
     { model with
       position = Chess.make_move model.position move 0 }, Cmd.none
 
 
-let result_view result =
-  p []
-    [ begin match result with
-        | Chess.Win White -> "White wins by checkmate!" 
-        | Chess.Win Black -> "Black wins by checkmate!"
-        | Chess.Draw -> "The game is a draw!"
-        | Chess.Play move_list ->
-          List.length move_list
-          |> Printf.sprintf "There are %d legal moves in this position!"
-      end |> text
-    ]
-
-
-let buttons_view =
-  p []
-    [ button [onClick Flip] [text "flip board"]
-    ; button [onClick Random_button] [text "random move"]
-    ]
-
-
 let view model =
-  let files, ranks =
-    match model.orientation with
-    | White -> [0; 1; 2; 3; 4; 5; 6; 7], [7; 6; 5; 4; 3; 2; 1; 0]
-    | Black -> [7; 6; 5; 4; 3; 2; 1; 0], [0; 1; 2; 3; 4; 5; 6; 7] in
-
-  let rank_view rank =
-    let square_view rank file =
-      node "cb-square" []
-        [ match model.position.ar.(file).(rank) with
-          | Chess.Piece (piece_type, color) ->
-            node "cb-piece"
-              [ classList
-                  [ Chess.string_of_color color, true
-                  ; Chess.string_of_piece_type piece_type, true
-                  ]
-              ] []
-          | Chess.Empty -> noNode
-        ] in
-    List.map (square_view rank) files
-    |> node "cb-row" [] in
-
+  let game_status = Chess.game_status model.position in
+  let interactable =
+    match game_status with
+    | Play move_list -> Board.Interactable (model.position.turn, move_list)
+    | _ -> Board.Not_interactable
+  in
   div []
-    [ List.map rank_view ranks
-      |> node "cb-board" []
-    ; buttons_view
-    ; Chess.game_status model.position |> result_view 
+    [ Board.view interactable model.position.ar model.board
+      |> map board_msg
+    ; List.map (map board_msg) Board.buttons_view @
+      [ button [onClick Random_button] [text "random move"]
+      ]
+      |> p []
+    ; Board.result_view game_status
     ]
 
 
-let subscriptions _model =
-  Sub.none
+let subscriptions model =
+  Board.subscriptions model.board |> Sub.map board_msg
 
 
 let main =
-  App.standardProgram
+  standardProgram
     { init
     ; update
     ; view
