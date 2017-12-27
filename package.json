@@ -6,12 +6,14 @@
     "clean:all": "bsb -clean-world",
     "build:bsb": "bsb -make-world",
     "build:js": "rollup -c",
+    "demo:js": "rollup -c --environment BUILD:demo",
     "serve": "serve release",
     "build": "run-s build:bsb build:js",
     "watch:bsb": "bsb -make-world -w",
     "watch:js": "rollup -c -w",
     "watch": "run-p watch:bsb watch:js serve",
-    "start": "run-s watch"
+    "start": "run-s watch",
+    "demo": "run-s build:bsb demo:js"
   },
   "keywords": [
     "Bucklescript"
@@ -24,6 +26,7 @@
     "rollup": "^0.52.1",
     "rollup-plugin-livereload": "^0.6.0",
     "rollup-plugin-node-resolve": "^3.0.0",
+    "rollup-plugin-uglify": "^2.0.1",
     "serve": "^6.4.1"
   }
 }

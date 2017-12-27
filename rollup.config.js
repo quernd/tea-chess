@@ -1,5 +1,6 @@
 import node_resolve from 'rollup-plugin-node-resolve';
 import livereload from 'rollup-plugin-livereload';
+import uglify from 'rollup-plugin-uglify';
 
 export default {
     input: './src/Main.bs.js',
@@ -7,7 +8,10 @@ export default {
         file: './release/main.js',
         format: 'iife'
     },
-    plugins: [
+    plugins: process.env.BUILD == "demo" ? [
+        node_resolve({module: true, browser: true}),
+        uglify()
+    ] : [
         node_resolve({module: true, browser: true}),
         livereload('release')
     ],
