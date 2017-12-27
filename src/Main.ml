@@ -11,6 +11,7 @@ type model =
 type msg =
   | Board_msg of Board.msg
   | Random_button
+  | Takeback_button
   | Random_move of Chess.move
 [@@bs.deriving {accessors}]
 
@@ -45,6 +46,11 @@ let update model = function
       position = Chess.make_move model.position move
     ; moves = (move, san)::model.moves
     }, Cmd.none
+  | Takeback_button ->
+    begin match model.moves, model.position.prev with
+      | _::moves, Some position -> {model with moves; position}
+      | _ -> model
+    end, Cmd.none
 
 
 let move_view (_move, san) =
@@ -62,6 +68,7 @@ let view model =
       |> map board_msg
     ; List.map (map board_msg) Board.buttons_view @
       [ button [onClick Random_button] [text "random move"]
+      ; button [onClick Takeback_button] [text "take back"]
       ]
       |> p []
     ; Board.result_view game_status
