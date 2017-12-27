@@ -19,8 +19,15 @@ type dragging = { turn : color
                 ; size : size
                 }
 
+type promoting = { turn : color
+                 ; source_file : file
+                 ; target_file : file
+                 ; size : size
+                 }
+
 type status =
   | Dragging of dragging
+  | Promoting of promoting
   | Nothing
 [@@bs.deriving {accessors}]
 
@@ -39,6 +46,8 @@ type internal_msg =
   | Move_start of dragging
   | Move_drag of Mouse.position
   | Move_drop of Mouse.position
+  | Promotion_canceled
+  | Piece_promoted of piece_type
 [@@bs.deriving {accessors}]
 
 type msg =
@@ -125,11 +134,24 @@ let update model = function
               | Completed_move move ->
                 {model with status = Nothing}, Cmd.msg (Move move)
               | Pawn_will_promote ->
-                {model with status = Nothing}, Cmd.none
+                {model with
+                 status = Promoting
+                     { turn = drag.turn
+                     ; source_file = fst drag.source
+                     ; target_file = fst target
+                     ; size = drag.size
+                     }},
+                Cmd.none
               with Not_found -> {model with status = Nothing}, Cmd.none
             end
           | None -> {model with status = Nothing}, Cmd.none
         end
+      | Promotion_canceled, _ -> {model with status = Nothing}, Cmd.none
+      | Piece_promoted piece_type, Promoting promoting ->      
+        let move = Promotion (piece_type,
+                              promoting.source_file,
+                              promoting.target_file) in
+        {model with status = Nothing}, Cmd.msg (Move move)
       | _ -> model, Cmd.none
     end
   | _ -> model, Cmd.none
@@ -176,7 +198,7 @@ let buttons_view =
   ]
 
 
-let view interactable pos_ar model =
+let board_view interactable pos_ar model =
 
   let move_start =
     match interactable with
@@ -208,7 +230,23 @@ let view interactable pos_ar model =
 
   let rank_view rank =
     let square_view rank file =
-      node "cb-square" []
+
+      let target_highlight drag target =
+        match drag.target with
+        | Some square when square = target -> true
+        | _ -> false
+      and legal_highlight drag target = List.exists
+          (fun (square, _) -> square = target) drag.legal_targets in
+
+      node "cb-square"
+        [ match model.status with
+          | Dragging drag ->
+            classList
+              [ "destination", legal_highlight drag (file, rank)
+              ; "hovering", target_highlight drag (file, rank)
+              ]
+          | _ -> noProp
+        ]
         [ match pos_ar.(file).(rank) with
           | Chess.Piece (piece_type, color) ->
             let listener =
@@ -216,9 +254,22 @@ let view interactable pos_ar model =
                 | Some (f, turn) when color = turn -> 
                   onCB "mousedown" ""
                     (handler offset_page_size (f file rank))
-                | _ -> noProp end in
+                | _ -> noProp end
+            and styles =
+              begin match model.status with 
+                | Dragging drag when (file, rank) = drag.source ->
+                  styles [ "z-index", "9"
+                         ; "transform",
+                           Printf.sprintf "translate(%dpx,%dpx)" 
+                             (drag.offset.x - (drag.size / 2) 
+                              + drag.coordinates.x - drag.initial.x)
+                             (drag.offset.y - (drag.size / 2) 
+                              + drag.coordinates.y - drag.initial.y) ]
+                | _ -> noProp end
+            in
             node "cb-piece"
               [ listener
+              ; styles
               ; classList
                   [ Chess.string_of_color color, true
                   ; Chess.string_of_piece_type piece_type, true
@@ -231,6 +282,45 @@ let view interactable pos_ar model =
 
   List.map rank_view ranks
   |> node "cb-board" []
+
+
+let view interactable pos_ar model =
+  let promo_view promoting =
+    let file = promoting.target_file in
+    let left, tops =
+      (match model.orientation, promoting.turn with
+       | White, White -> file, [0; 1; 2; 3]
+       | White, Black -> file, [7; 6; 5; 4]
+       | Black, White -> 7 - file, [7; 6; 5; 4]
+       | Black, Black -> 7 - file, [0; 1; 2; 3]
+      ) in
+    node "cb-promo"
+      [Internal_msg Promotion_canceled |> onClick]
+      (List.combine tops  (* List.combine is like Python's `zip' *)
+         [Queen; Knight; Rook; Bishop]
+       |> List.map (fun (top, piece_type) ->
+           node "cb-square"
+             [ styles
+                 [ "left", Printf.sprintf "%dpx" (left * promoting.size)
+                 ; "top", Printf.sprintf "%dpx" (top * promoting.size)
+                 ]
+             ]
+             [ node "cb-piece"
+                 [ Internal_msg (Piece_promoted piece_type) |> onClick
+                 ; classList
+                     [ Chess.string_of_color promoting.turn, true
+                     ; Chess.string_of_piece_type piece_type, true
+                     ]
+                 ] []         
+             ])
+      ) in
+
+  node "cb-wrap" []
+    [ begin match model.status with
+        | Promoting promoting -> promo_view promoting
+        | _ -> noNode end
+    ; board_view interactable pos_ar model
+    ]
 
 
 let subscriptions model = match model.status with
