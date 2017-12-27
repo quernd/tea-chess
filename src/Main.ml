@@ -5,6 +5,7 @@ open Tea.App
 type model =
   { position : Chess.position
   ; board : Board.model
+  ; moves : (Chess.move * string) list
   }
 
 type msg =
@@ -16,7 +17,8 @@ type msg =
 
 let init () =
   { position = Chess.init_position
-  ; board = Board.init () 
+  ; board = Board.init ()
+  ; moves = []
   }, Cmd.none
 
 
@@ -38,9 +40,15 @@ let update model = function
       | _ -> Cmd.none
     end
   | Random_move move | Board_msg (Move move) ->
+    let san = Chess.legal_moves_with_san model.position |> List.assoc move in
     { model with
-      position = Chess.make_move model.position move 0 }, Cmd.none
+      position = Chess.make_move model.position move
+    ; moves = (move, san)::model.moves
+    }, Cmd.none
 
+
+let move_view (_move, san) =
+  li [class' "move"] [text san]
 
 let view model =
   let game_status = Chess.game_status model.position in
@@ -57,6 +65,7 @@ let view model =
       ]
       |> p []
     ; Board.result_view game_status
+    ; List.rev_map move_view model.moves |> ul [class' "moves"]
     ]
 
 
