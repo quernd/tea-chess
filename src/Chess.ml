@@ -20,7 +20,6 @@ type long_move =
 type check =
   | Check | Checkmate | No_check
 
-type annotated_move = long_move * check
 
 let char_of_file file = "abcdefgh".[file]
 let char_of_rank rank = "12345678".[rank]
@@ -127,19 +126,19 @@ let san_of_move' position move_list move =
          else "")
         (char_of_file t_file)
         (char_of_rank t_rank)
-        begin match promotion with
-          | None -> ""
-          | Some p_type ->
-            char_of_piece_type p_type |> Printf.sprintf "=%c" end
+        (match promotion with
+         | None -> ""
+         | Some p_type ->
+           char_of_piece_type p_type |> Printf.sprintf "=%c")
     | Some (p_type, file_hint, rank_hint, (t_file, t_rank), capture), _ ->
       Printf.sprintf "%c%s%s%s%c%c"
         (char_of_piece_type p_type)
-        begin match file_hint with
-          | None -> ""
-          | Some file -> char_of_file file |> Printf.sprintf "%c" end
-        begin match rank_hint with
-          | None -> ""
-          | Some rank -> char_of_rank rank |> Printf.sprintf "%c" end
+        (match file_hint with
+         | None -> ""
+         | Some file -> char_of_file file |> Printf.sprintf "%c")
+        (match rank_hint with
+         | None -> ""
+         | Some rank -> char_of_rank rank |> Printf.sprintf "%c")
         (if capture then "x" else "")
         (char_of_file t_file)
         (char_of_rank t_rank)
