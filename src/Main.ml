@@ -12,7 +12,8 @@ type model =
 type msg =
   | Board_msg of Board.msg
   | Random_button
-  | Takeback_button
+  | Back_button
+  | Fwd_button
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
 [@@bs.deriving {accessors}]
@@ -50,7 +51,7 @@ let update model = function
     ; moves = Zipper.fwd' (move, san) model.moves
     ; ply = model.ply + 1
     }, Cmd.none
-  | Takeback_button ->
+  | Back_button ->
     begin match model.position.prev with
       | Some position ->
         { model with
@@ -59,11 +60,22 @@ let update model = function
         ; ply = model.ply - 1}
       | _ -> model
     end, Cmd.none
+  | Fwd_button ->
+    begin try let (move, _san), moves = Zipper.fwd model.moves in
+        { model with
+          position = Chess.make_move model.position move
+        ; moves
+        ; ply = model.ply + 1
+        }, Cmd.none
+      with Zipper.End_of_list -> model, Cmd.none
+    end
   | Key_pressed key_event ->
     model,
     begin match key_event.ctrl, key_event.key_code with
+      | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
+      | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
       | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
-      | true, 84 (* Ctrl-t *) -> Cmd.msg Takeback_button
+      | true, 84 (* Ctrl-t *) -> Cmd.msg Back_button
       | _ -> Cmd.none
     end
 
@@ -79,6 +91,12 @@ let move_view ?(highlight=false) ply (_move, san) =
     ]
 
 
+let home_view ~highlight =
+  li [ classList
+         [ "move", true
+         ; "highlight", highlight ] ]
+    [span [class' "move"] [text {js|\u2302|js}]]
+
 let move_list_future_view ply future =
   let rec loop offset cont = function
     | [] -> cont []
@@ -93,9 +111,9 @@ let move_list_view ply (past, future) =
     | [] -> acc
     | hd::tl -> loop (offset + 1)
                   (move_view ~highlight:(offset = 1) (ply - offset) hd::acc) tl
-  in loop 1 (move_list_future_view ply future) past
+  in home_view ~highlight:(ply = 0)::
+     loop 1 (move_list_future_view ply future) past
      |> ul [class' "moves"]
-
 
 let view model =
   let game_status = Chess.game_status model.position in
@@ -109,7 +127,8 @@ let view model =
       |> map board_msg
     ; List.map (map board_msg) Board.buttons_view @
       [ button [onClick Random_button] [text "random move"]
-      ; button [onClick Takeback_button] [text "take back"]
+      ; button [onClick Back_button] [text "back"]
+      ; button [onClick Fwd_button] [text "forward"]
       ]
       |> p []
     ; Board.result_view game_status
