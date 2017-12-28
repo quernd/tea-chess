@@ -60,8 +60,18 @@ let update model = function
       | _ -> Cmd.none
     end
 
-let move_view (_move, san) =
-  li [class' "move"] [text san]
+let move_view ply (_move, san) =
+  let number = ply / 2 + 1
+  and w_move = ply mod 2 = 0 in
+  li [ classList [ "move", true
+                 ; "numbered", w_move
+                 ] ]
+    [ span [class' "number"] [string_of_int number |> text]
+    ; span [class' "move"] [text san]
+    ]
+
+let move_list_view moves =
+  List.rev moves |> List.mapi move_view |> ul [class' "moves"]
 
 let view model =
   let game_status = Chess.game_status model.position in
@@ -79,7 +89,7 @@ let view model =
       ]
       |> p []
     ; Board.result_view game_status
-    ; List.rev_map move_view model.moves |> ul [class' "moves"]
+    ; move_list_view model.moves
     ]
 
 

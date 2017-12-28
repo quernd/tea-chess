@@ -129,3 +129,23 @@ cb-promo cb-square:hover {
 cb-promo cb-square:hover cb-piece {
     transform: none;
 }
+
+li.move {
+  display: inline;
+}
+ul.moves {
+  list-style-type: none;
+}
+li.move:after {
+  content: " ";
+}
+span.number {
+    color: #808080;
+    display: none;
+}
+span.number:after {
+  content: ".\00a0";
+}
+li.move.numbered > span.number {
+    display: inline;
+}
