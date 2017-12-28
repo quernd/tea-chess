@@ -139,6 +139,9 @@ ul.moves {
 li.move:after {
   content: " ";
 }
+li.move.highlight > span.move {
+  background: #ff0;
+}
 span.number {
     color: #808080;
     display: none;

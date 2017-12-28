@@ -67,11 +67,12 @@ let update model = function
       | _ -> Cmd.none
     end
 
-let move_view ply (_move, san) =
+let move_view ?(highlight=false) ply (_move, san) =
   let number = ply / 2 + 1
   and w_move = ply mod 2 = 0 in
   li [ classList [ "move", true
                  ; "numbered", w_move
+                 ; "highlight", highlight
                  ] ]
     [ span [class' "number"] [string_of_int number |> text]
     ; span [class' "move"] [text san]
@@ -83,16 +84,17 @@ let move_list_future_view ply future =
     | [] -> cont []
     | hd::tl ->
       loop (offset + 1)
-        (fun acc -> move_view (ply + offset) hd::acc |> cont) tl
+        (fun acc -> move_view (ply + offset) hd::acc
+                    |> cont) tl
   in loop 0 (fun x -> x) future
 
 let move_list_view ply (past, future) =
   let rec loop offset acc = function
     | [] -> acc
-    | hd::tl -> loop (offset + 1) (move_view (ply - offset) hd::acc) tl
-  in
-  loop 1 (move_list_future_view ply future) past
-  |> ul [class' "moves"]
+    | hd::tl -> loop (offset + 1)
+                  (move_view ~highlight:(offset = 1) (ply - offset) hd::acc) tl
+  in loop 1 (move_list_future_view ply future) past
+     |> ul [class' "moves"]
 
 
 let view model =
