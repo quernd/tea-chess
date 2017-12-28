@@ -5,7 +5,8 @@ open Tea.App
 type model =
   { position : Chess.position
   ; board : Board.model
-  ; moves : (Chess.move * string) list
+  ; moves : (Chess.move * string) Zipper.zipper
+  ; ply : int
   }
 
 type msg =
@@ -20,7 +21,8 @@ type msg =
 let init () =
   { position = Chess.init_position
   ; board = Board.init ()
-  ; moves = []
+  ; moves = Zipper.init ()
+  ; ply = 0
   }, Cmd.none
 
 
@@ -45,14 +47,19 @@ let update model = function
     let san = Chess.san_of_move model.position move in
     { model with
       position = Chess.make_move model.position move
-    ; moves = (move, san)::model.moves
+    ; moves = Zipper.fwd' (move, san) model.moves
+    ; ply = model.ply + 1
     }, Cmd.none
   | Takeback_button ->
-    begin match model.moves, model.position.prev with
-      | _::moves, Some position -> {model with moves; position}
+    begin match model.position.prev with
+      | Some position ->
+        { model with
+          moves = Zipper.back model.moves
+        ; position
+        ; ply = model.ply - 1}
       | _ -> model
     end, Cmd.none
-  | Key_pressed key_event -> Js.log key_event;
+  | Key_pressed key_event ->
     model,
     begin match key_event.ctrl, key_event.key_code with
       | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
@@ -70,8 +77,23 @@ let move_view ply (_move, san) =
     ; span [class' "move"] [text san]
     ]
 
-let move_list_view moves =
-  List.rev moves |> List.mapi move_view |> ul [class' "moves"]
+
+let move_list_future_view ply future =
+  let rec loop offset cont = function
+    | [] -> cont []
+    | hd::tl ->
+      loop (offset + 1)
+        (fun acc -> move_view (ply + offset) hd::acc |> cont) tl
+  in loop 0 (fun x -> x) future
+
+let move_list_view ply (past, future) =
+  let rec loop offset acc = function
+    | [] -> acc
+    | hd::tl -> loop (offset + 1) (move_view (ply - offset) hd::acc) tl
+  in
+  loop 1 (move_list_future_view ply future) past
+  |> ul [class' "moves"]
+
 
 let view model =
   let game_status = Chess.game_status model.position in
@@ -89,7 +111,7 @@ let view model =
       ]
       |> p []
     ; Board.result_view game_status
-    ; move_list_view model.moves
+    ; move_list_view model.ply model.moves
     ]
 
 
