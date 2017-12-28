@@ -42,7 +42,7 @@ let update model = function
       | _ -> Cmd.none
     end
   | Random_move move | Board_msg (Move move) ->
-    let san = Chess.legal_moves_with_san model.position |> List.assoc move in
+    let san = Chess.san_of_move model.position move in
     { model with
       position = Chess.make_move model.position move
     ; moves = (move, san)::model.moves
