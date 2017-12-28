@@ -16,6 +16,7 @@ type msg =
   | Fwd_button
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
+  | Jump of int
 [@@bs.deriving {accessors}]
 
 
@@ -78,41 +79,68 @@ let update model = function
       | true, 84 (* Ctrl-t *) -> Cmd.msg Back_button
       | _ -> Cmd.none
     end
+  | Jump how_many ->
+    let rec jump_fwd position zipper n =
+      if n <= 0 then position, zipper
+      else let (move, _san), zipper' = Zipper.fwd zipper in
+        jump_fwd (Chess.make_move position move) zipper' (n - 1) in
+    let rec jump_back (position:Chess.position) zipper n =
+      match position.prev, n with
+      | Some position', n when n < 0 ->
+        jump_back position' (Zipper.back zipper) (n + 1)
+      | _ -> position, zipper in
+    begin match how_many with
+      | 0 -> model, Cmd.none
+      | n -> let position, moves =
+               if n > 0 then jump_fwd model.position model.moves n
+               else jump_back model.position model.moves n in
+        {model with position; moves; ply = model.ply + n}, Cmd.none
+    end
 
-let move_view ?(highlight=false) ply (_move, san) =
-  let number = ply / 2 + 1
+let move_view ?(highlight=false) current_ply offset (_move, san) =
+  let ply = current_ply + offset + 1 in
+  let number = ply / 2
   and w_move = ply mod 2 = 0 in
   li [ classList [ "move", true
                  ; "numbered", w_move
                  ; "highlight", highlight
                  ] ]
     [ span [class' "number"] [string_of_int number |> text]
-    ; span [class' "move"] [text san]
+    ; span
+        [ class' "move"
+        ; if offset <> 0 then onClick (Jump offset) else noProp
+        ] [text san]
     ]
 
 
-let home_view ~highlight =
+let home_view ~highlight current_ply =
   li [ classList
          [ "move", true
          ; "highlight", highlight ] ]
-    [span [class' "move"] [text {js|\u2302|js}]]
+    [ span
+        [ class' "move"
+        ; onClick (Jump (-current_ply))
+        ] [text {js|\u2302|js}]
+    ]
+
 
 let move_list_future_view ply future =
   let rec loop offset cont = function
     | [] -> cont []
     | hd::tl ->
       loop (offset + 1)
-        (fun acc -> move_view (ply + offset) hd::acc
+        (fun acc -> move_view ply offset hd::acc
                     |> cont) tl
-  in loop 0 (fun x -> x) future
+  in loop 1 (fun x -> x) future
 
 let move_list_view ply (past, future) =
   let rec loop offset acc = function
     | [] -> acc
-    | hd::tl -> loop (offset + 1)
-                  (move_view ~highlight:(offset = 1) (ply - offset) hd::acc) tl
-  in home_view ~highlight:(ply = 0)::
-     loop 1 (move_list_future_view ply future) past
+    | hd::tl ->
+      loop (offset - 1)
+        (move_view ~highlight:(offset = 0) ply offset hd::acc) tl
+  in home_view ~highlight:(ply = 0) ply::
+     loop 0 (move_list_future_view ply future) past
      |> ul [class' "moves"]
 
 let view model =

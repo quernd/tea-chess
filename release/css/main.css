@@ -142,6 +142,9 @@ li.move:after {
 li.move.highlight > span.move {
   background: #ff0;
 }
+span.move {
+  cursor: pointer;
+}
 span.number {
     color: #808080;
     display: none;
