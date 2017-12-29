@@ -73,8 +73,8 @@ let update model = function
   | Key_pressed key_event ->
     model,
     begin match key_event.ctrl, key_event.key_code with
-      | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
-      | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
+      | _, 37 (* left *) | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
+      | _, 39 (* right *) | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
       | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
       | true, 84 (* Ctrl-t *) -> Cmd.msg Back_button
       | _ -> Cmd.none
