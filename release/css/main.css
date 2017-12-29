@@ -155,3 +155,51 @@ span.number:after {
 li.move.numbered > span.number {
     display: inline;
 }
+
+#main {
+    display: flex;
+}
+
+      
+#board {
+    text-align: center;
+}
+
+@media screen and (min-width:760px) {
+    #main {
+        flex-direction: row;
+        min-height: 100%;
+        align-items: stretch;
+    }
+    #board {
+        order: -1;
+        flex: 0 0 482px;
+    }
+    .fixed {
+        position: fixed;
+        width: 482px;
+    }
+    #flexible {
+        order: 1;
+        padding: 1rem;
+    }
+}
+
+
+@media screen and (max-width:760px) {
+    html, body {
+        height: 100%;
+        margin-top: 0px;
+        margin-bottom: 0px;
+        padding-top: 0px;
+        padding-bottom: 0px;
+    }
+    #main {
+        flex-direction: column;
+        height: 100%;
+    }    
+    #flexible {
+        flex: 1 1 auto;
+        overflow-y: auto;
+    }
+}

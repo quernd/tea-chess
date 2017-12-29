@@ -17,15 +17,25 @@ type msg =
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
   | Jump of int
+  | Validate_pgn of string
 [@@bs.deriving {accessors}]
 
 
 let init () =
+  let url = "http://localhost:3000/fetch/https://lichess.org/api/tournament/GToVqkC9" in
+  let http_cmd =
+    Http.getString url
+    |> Http.send
+      (function
+        | Result.Error _e -> Jump 0
+        | Result.Ok output ->
+          let system = Json.Decoder.decodeString (Json.Decoder.field "system" Json.Decoder.string) output in
+          Js.log system; Validate_pgn output) in
   { position = Chess.init_position
   ; board = Board.init ()
   ; moves = Zipper.init ()
   ; ply = 0
-  }, Cmd.none
+  }, http_cmd
 
 
 let update model = function
@@ -73,8 +83,8 @@ let update model = function
   | Key_pressed key_event ->
     model,
     begin match key_event.ctrl, key_event.key_code with
-      | _, 37 (* left *) | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
-      | _, 39 (* right *) | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
+      | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
+      | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
       | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
       | true, 84 (* Ctrl-t *) -> Cmd.msg Back_button
       | _ -> Cmd.none
@@ -96,6 +106,25 @@ let update model = function
                else jump_back model.position model.moves n in
         {model with position; moves; ply = model.ply + n}, Cmd.none
     end
+  | Validate_pgn s ->
+    let pgn = Pgn.Opal.LazyStream.of_string s |> Pgn.Opal.parse (Pgn.pgn_game) in
+    let advance (position, ply, acc) (move:Pgn.pgn_move) =
+      let move' = Pgn.move_of_pgn_move position move.move in
+      let position' = Chess.make_move position move' in
+      let san = Chess.san_of_move position move' in
+      let acc' = (move', san)::acc in
+      (position', ply + 1, acc')
+    in
+    begin match pgn with
+      | Some (_, pgn', _) -> begin try
+            let position, ply, past = List.fold_left advance
+                (Chess.init_position, 0, []) pgn' in
+            { model with position; ply; moves = (past, []) }, Cmd.none
+          with e -> (Js.log e; model, Cmd.none) end
+      | None -> model, Cmd.none
+    end
+
+
 
 let move_view ?(highlight=false) current_ply offset (_move, san) =
   let ply = current_ply + offset + 1 in
@@ -150,19 +179,22 @@ let view model =
     | Play move_list -> Board.Interactable (model.position.turn, move_list)
     | _ -> Board.Not_interactable
   in
-  div []
-    [ Board.view interactable model.position.ar model.board
-      |> map board_msg
-    ; List.map (map board_msg) Board.buttons_view @
-      [ button [onClick Random_button] [text "random move"]
-      ; button [onClick Back_button] [text "back"]
-      ; button [onClick Fwd_button] [text "forward"]
-      ]
-      |> p []
-    ; Board.result_view game_status
-    ; move_list_view model.ply model.moves
+  div [id "main"]
+    [ div [id "board"]
+        [
+          [ Board.view interactable model.position.ar model.board
+            |> map board_msg
+          ; List.map (map board_msg) Board.buttons_view @
+            [ button [onClick Random_button] [text "random move"]
+            ; button [onClick Back_button] [text "back"]
+            ; button [onClick Fwd_button] [text "forward"]
+            ]
+            |> p []
+          ; Board.result_view game_status
+          ] |> div [class' "fixed"]
+        ]
+    ; div [id "flexible"] [move_list_view model.ply model.moves]
     ]
-
 
 let subscriptions model =
   Sub.batch
