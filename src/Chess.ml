@@ -20,7 +20,6 @@ type long_move =
 type check =
   | Check | Checkmate | No_check
 
-type annotated_move = long_move * check
 
 let char_of_file file = "abcdefgh".[file]
 let char_of_rank rank = "12345678".[rank]
@@ -52,29 +51,26 @@ let annotate_move position move =
 
 
 let long_move position move =
-  let check = annotate_move position move
-  and move' = 
-    match move with
-    | Move (s_file, s_rank, t_file, t_rank) ->
-      begin match position.ar.(s_file).(s_rank) with
-        | Piece (Pawn, _) ->
-          (* a pawn move is a capture if and only if it changes files *)
-          Pawn_move (s_file, (t_file, t_rank), (s_file <> t_file), None)
-        | Piece (p_type, _) ->
-          let capture =
-            match position.ar.(t_file).(t_rank) with
-            | Piece _ -> true | Empty -> false in
-          Piece_move (p_type, (s_file, s_rank), (t_file, t_rank), capture)
-        | Empty -> raise Illegal_move
-      end
-    | Queenside_castle -> Qside_castle
-    | Kingside_castle -> Kside_castle
-    | Promotion (p_type, s_file, t_file) ->
-      let t_rank =
-        match position.turn with
-        | White -> 7 | Black -> 0 in
-      Pawn_move (s_file, (t_file, t_rank), (s_file <> t_file), Some p_type)
-  in move', check
+  match move with
+  | Move (s_file, s_rank, t_file, t_rank) ->
+    begin match position.ar.(s_file).(s_rank) with
+      | Piece (Pawn, _) ->
+        (* a pawn move is a capture if and only if it changes files *)
+        Pawn_move (s_file, (t_file, t_rank), (s_file <> t_file), None)
+      | Piece (p_type, _) ->
+        let capture =
+          match position.ar.(t_file).(t_rank) with
+          | Piece _ -> true | Empty -> false in
+        Piece_move (p_type, (s_file, s_rank), (t_file, t_rank), capture)
+      | Empty -> raise Illegal_move
+    end
+  | Queenside_castle -> Qside_castle
+  | Kingside_castle -> Kside_castle
+  | Promotion (p_type, s_file, t_file) ->
+    let t_rank =
+      match position.turn with
+      | White -> 7 | Black -> 0 in
+    Pawn_move (s_file, (t_file, t_rank), (s_file <> t_file), Some p_type)
 
 let unify value hint =
   match value, hint with
@@ -83,7 +79,7 @@ let unify value hint =
   | _ -> false
 
 (* is the candidate a possible short form of a long move? *)
-let unify_move short_move (long_move, _) =
+let unify_move short_move long_move =
   match long_move with
   | Piece_move (long_p_type, long_source, long_target, _) ->
     (* capture irrelevant *)
@@ -102,7 +98,7 @@ let unique move_list short_move =
 
 (* return a short move for a piece move, else None *)
 (* following order of preference: Qg7, Qhg7, Q8g7, Qh8g7 *)
-let short_move_of_long_move move_list (long_move, _) =
+let short_move_of_long_move move_list long_move =
   let unique' = unique move_list in
   match long_move with
   | Piece_move (p_type, (s_file, s_rank), target, capture) ->
@@ -115,10 +111,10 @@ let short_move_of_long_move move_list (long_move, _) =
           Some (p_type, Some s_file, Some s_rank, target, capture)
   | _ -> None
 
-
-let san_of_move move_list annotated_move =
-  let long_move, check = annotated_move in
-  let short_move_option = short_move_of_long_move move_list annotated_move in
+let san_of_move' position move_list move =
+  let long_move = long_move position move
+  and check = annotate_move position move in
+  let short_move_option = short_move_of_long_move move_list long_move in
   let san =
     match short_move_option, long_move with
     | None, Qside_castle -> "O-O-O"
@@ -130,19 +126,19 @@ let san_of_move move_list annotated_move =
          else "")
         (char_of_file t_file)
         (char_of_rank t_rank)
-        begin match promotion with
-          | None -> ""
-          | Some p_type ->
-            char_of_piece_type p_type |> Printf.sprintf "=%c" end
+        (match promotion with
+         | None -> ""
+         | Some p_type ->
+           char_of_piece_type p_type |> Printf.sprintf "=%c")
     | Some (p_type, file_hint, rank_hint, (t_file, t_rank), capture), _ ->
       Printf.sprintf "%c%s%s%s%c%c"
         (char_of_piece_type p_type)
-        begin match file_hint with
-          | None -> ""
-          | Some file -> char_of_file file |> Printf.sprintf "%c" end
-        begin match rank_hint with
-          | None -> ""
-          | Some rank -> char_of_rank rank |> Printf.sprintf "%c" end
+        (match file_hint with
+         | None -> ""
+         | Some file -> char_of_file file |> Printf.sprintf "%c")
+        (match rank_hint with
+         | None -> ""
+         | Some rank -> char_of_rank rank |> Printf.sprintf "%c")
         (if capture then "x" else "")
         (char_of_file t_file)
         (char_of_rank t_rank)
@@ -153,11 +149,17 @@ let san_of_move move_list annotated_move =
   | Checkmate -> "#"
   | No_check -> ""
 
+
 let moves_assoc_list position moves =
   let long_moves = moves |> List.map (long_move position) in
-  let san_moves = long_moves |> List.map (san_of_move long_moves) in
+  let san_moves = moves |> List.map (san_of_move' position long_moves) in
   List.combine moves san_moves
 
 let legal_moves_with_san position =
   legal_moves position |> moves_assoc_list position
+
+let san_of_move position move =
+  let move_list = legal_moves position |> List.map (long_move position) in
+  san_of_move' position move_list move
+
 
