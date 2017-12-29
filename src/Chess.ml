@@ -14,8 +14,7 @@ type short_move =
 type long_move =
   | Piece_move of piece_type * square * square * capture
   | Pawn_move of file * square * capture * promotion
-  | Qside_castle
-  | Kside_castle
+  | Ochess_move of move
 
 type check =
   | Check | Checkmate | No_check
@@ -64,8 +63,8 @@ let long_move position move =
         Piece_move (p_type, (s_file, s_rank), (t_file, t_rank), capture)
       | Empty -> raise Illegal_move
     end
-  | Queenside_castle -> Qside_castle
-  | Kingside_castle -> Kside_castle
+  | Queenside_castle -> Ochess_move Queenside_castle
+  | Kingside_castle -> Ochess_move Kingside_castle
   | Promotion (p_type, s_file, t_file) ->
     let t_rank =
       match position.turn with
@@ -117,8 +116,8 @@ let san_of_move' position move_list move =
   let short_move_option = short_move_of_long_move move_list long_move in
   let san =
     match short_move_option, long_move with
-    | None, Qside_castle -> "O-O-O"
-    | None, Kside_castle -> "O-O"
+    | None, Ochess_move Queenside_castle -> "O-O-O"
+    | None, Ochess_move Kingside_castle -> "O-O"
     | None, Pawn_move (file, (t_file, t_rank), capture, promotion) ->
       Printf.sprintf "%s%c%c%s" 
         (if capture
