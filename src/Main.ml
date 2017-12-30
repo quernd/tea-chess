@@ -2,11 +2,24 @@ open Tea
 open Tea.Html
 open Tea.App
 
+type 'a transfer =
+  | Loading
+  | Failed
+  | Received of 'a
+
+type view =
+  | Game
+  | Tournament
+  | Pgn of string
+
 type model =
   { position : Chess.position
   ; board : Board.model
   ; moves : (Chess.move * string) Zipper.zipper
   ; ply : int
+  ; tournament : (string * string list) list transfer
+  ; pgn : (string * string transfer) list (* association list *)
+  ; view : view
   }
 
 type msg =
@@ -17,15 +30,37 @@ type msg =
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
   | Jump of int
+  | Tournament_data of (string, string Http.error) Result.t
+  | Location_change of Web.Location.location  
+  | Pgn_requested of string
+  | Pgn_data of string * (string, string Http.error) Result.t
+  | Close_tab of string
 [@@bs.deriving {accessors}]
 
+let proxy = "https://thingproxy.freeboard.io/fetch/"
 
-let init () =
+let view_of_location location =
+  let open Web.Location in
+  let route = Chess.split_on_char '/' location.hash in
+  match route with
+  | ["#"; "game"] -> Game, Cmd.none
+  | ["#"; "tournament"] -> Tournament, Cmd.none
+  | ["#"; "pgn"; id] ->  Pgn id, Cmd.msg (Pgn_requested id)
+  | _ -> Game, Navigation.modifyUrl "#/game"  (* default route *)
+
+let init () location =
+  let view, cmd = view_of_location location in
+  let url = "https://lichess.org/api/tournament/GToVqkC9" in
+  let init_cmd =
+    Http.getString url |> Http.send tournament_data in
   { position = Chess.init_position
   ; board = Board.init ()
   ; moves = Zipper.init ()
   ; ply = 0
-  }, Cmd.none
+  ; tournament = Loading
+  ; view
+  ; pgn = []
+  }, Cmd.batch [init_cmd; cmd]
 
 
 let update model = function
@@ -96,6 +131,51 @@ let update model = function
                else jump_back model.position model.moves n in
         {model with position; moves; ply = model.ply + n}, Cmd.none
     end
+  | Tournament_data (Result.Error e) -> Js.log e;
+    {model with tournament = Failed}, Cmd.none
+  | Tournament_data (Result.Ok data) -> 
+    let open Json.Decoder in
+    let players_decoder = list string in
+    let pairing_decoder = map2 (fun x y -> x, y)
+        (field "id" string)
+        (field "u" players_decoder) in
+    let list_decoder = list pairing_decoder in
+    let pairings_decoder = field "pairings" list_decoder in
+    {model with
+     tournament = match decodeString pairings_decoder data with
+       | Ok tournament -> Received tournament
+       | Error _ -> Failed
+    }, Cmd.none
+  | Location_change location ->
+    let view, cmd = view_of_location location in
+    {model with view}, cmd
+  | Pgn_requested id ->
+    if List.mem_assoc id model.pgn
+    then model, Cmd.none
+    else 
+      let url =
+        Printf.sprintf "%shttps://lichess.org/game/export/%s.pgn" proxy id in
+      let cmd = Http.getString url |> Http.send (pgn_data id) in
+      { model with
+        view = Pgn id
+      ; pgn = (id, Loading)::model.pgn
+      }, cmd
+  | Pgn_data (id, Result.Error _e) ->
+    { model with
+      pgn = (id, Failed)::List.remove_assoc id model.pgn
+    }, Cmd.none
+  | Pgn_data (id, Result.Ok data) ->
+    { model with
+      pgn = (id, Received data)::List.remove_assoc id model.pgn
+    }, Cmd.none
+  | Close_tab id ->
+    let pgn = List.remove_assoc id model.pgn in
+    let view = begin match pgn with
+      | (id, _)::_ -> Pgn id
+      | [] -> Tournament
+    end in
+    {model with pgn; view}, Cmd.none
+
 
 let move_view ?(highlight=false) current_ply offset (_move, san) =
   let ply = current_ply + offset + 1 in
@@ -143,6 +223,71 @@ let move_list_view ply (past, future) =
      loop 0 (move_list_future_view ply future) past
      |> ul [class' "moves"]
 
+
+let buttons_view =
+  List.map (map board_msg) Board.buttons_view @
+  [ button [onClick Random_button] [text "random move"]
+  ; button [onClick Back_button] [text "back"]
+  ; button [onClick Fwd_button] [text "forward"]
+  ]
+  |> nav [id "buttons"]
+
+let header_nav_view =
+  nav [class' "top"]
+    [ ul []
+        [ li [class' "home"] [text "TEA-Chess"]
+        ; li []
+            [ a [href "https://quernd.github.io/tutorials/tea-chess"]
+                [text "Tutorial"] ]
+        ; li []
+            [ a [href "https://github.com/quernd/tea-chess"]
+                [text "Code"] ]
+        ]
+    ]
+
+let tournament_view tournament =
+  match tournament with
+  | Loading -> text "Loading tournament..."
+  | Received tournament' ->
+    List.map
+      (fun (id, players) ->
+         td [] [ a [href (Printf.sprintf "#/pgn/%s" id)] [text id]]::
+         (List.map (fun player -> td [] [text player]) players) |> tr [])
+      tournament'
+    |> table []
+  | Failed -> text "Tournament could not be loaded."
+
+let pgn_view id pgn =
+  try match List.assoc id pgn with
+    | Loading -> text "Loading PGN game..."
+    | Received pgn' -> 
+      pre [style "white-space" "pre-wrap"] [text pgn']
+    | Failed -> text "Game could not be loaded."             
+  with Not_found -> text ""
+
+let game_nav_view model =
+  let pgn_nav_item id =
+    li [ if model.view = Pgn id then class' "current" else noProp ]
+      [ if model.view = Pgn id
+        then text id
+        else a [href (Printf.sprintf "#/pgn/%s" id)] [text id]
+      ; span [] [text " "]
+      ; span [ style "cursor" "pointer"
+             ; onClick (Close_tab id)
+             ] [text "(x)"]
+      ] in
+
+  let game_nav_item current link label =
+    li [ if current then class' "current" else noProp ]
+      [ if current then text label else a [href link] [text label] ] in
+
+  nav [class' "top tabbed"]
+    [ ul []
+        ([ game_nav_item (model.view = Game) "#/game" "Game"
+         ; game_nav_item (model.view = Tournament) "#/tournament" "Tournament"
+         ] @ (List.rev_map (fun (id, _) -> pgn_nav_item id) model.pgn))
+    ]
+
 let view model =
   let game_status = Chess.game_status model.position in
   let interactable =
@@ -150,17 +295,23 @@ let view model =
     | Play move_list -> Board.Interactable (model.position.turn, move_list)
     | _ -> Board.Not_interactable
   in
-  div []
-    [ Board.view interactable model.position.ar model.board
-      |> map board_msg
-    ; List.map (map board_msg) Board.buttons_view @
-      [ button [onClick Random_button] [text "random move"]
-      ; button [onClick Back_button] [text "back"]
-      ; button [onClick Fwd_button] [text "forward"]
-      ]
-      |> p []
-    ; Board.result_view game_status
-    ; move_list_view model.ply model.moves
+  main []
+    [ section [id "board"]
+        [ header_nav_view
+        ; Board.view interactable model.position.ar model.board
+          |> map board_msg
+        ; buttons_view
+          (* ; Board.result_view game_status *)
+        ]
+    ; section [id "game"]
+        [ game_nav_view model
+        ; section [class' "scroll"]
+            [ match model.view with
+              | Game -> move_list_view model.ply model.moves
+              | Tournament -> tournament_view model.tournament
+              | Pgn id -> pgn_view id model.pgn
+            ]
+        ]
     ]
 
 
@@ -171,9 +322,10 @@ let subscriptions model =
 
 
 let main =
-  standardProgram
+  Navigation.navigationProgram location_change
     { init
     ; update
     ; view
     ; subscriptions
+    ; shutdown = (fun _ -> Cmd.none)
     }

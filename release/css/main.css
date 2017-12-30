@@ -130,11 +130,73 @@ cb-promo cb-square:hover cb-piece {
     transform: none;
 }
 
+
+@media screen and (max-width:832px) {
+    cb-square {
+        width: 48px;
+        height: 48px;
+    }
+    cb-board {
+        width: 384px;
+        height: 384px;
+    }
+    cb-promo {
+        width: 384px;
+        height: 384px;
+    }
+    cb-promo cb-square {
+        box-shadow: inset 0 0 20px 2.4px #808080;
+    }
+    cb-promo cb-square:hover {
+        box-shadow: inset 0 0 38.4px 6.4px #d85000;
+    }
+}
+
+@media screen and (max-width:740px) {
+    cb-square {
+        width: 36px;
+        height: 36px;
+    }
+    cb-board {
+        width: 288px;
+        height: 288px;
+    }
+    cb-promo {
+        width: 288px;
+        height: 288px;
+    }
+    cb-promo cb-square {
+        box-shadow: inset 0 0 15px 1.8px #808080;
+    }
+    cb-promo cb-square:hover {
+        box-shadow: inset 0 0 28.8px 4.8px #d85000;
+    }
+}
+
+@media screen and (max-height:740px) {
+    cb-square {
+        width: 36px;
+        height: 36px;
+    }
+    cb-board {
+        width: 288px;
+        height: 288px;
+    }
+    cb-promo {
+        width: 288px;
+        height: 288px;
+    }
+    cb-promo cb-square {
+        box-shadow: inset 0 0 15px 1.8px #808080;
+    }
+    cb-promo cb-square:hover {
+        box-shadow: inset 0 0 28.8px 4.8px #d85000;
+    }
+}
+
+
 li.move {
   display: inline;
-}
-ul.moves {
-  list-style-type: none;
 }
 li.move:after {
   content: " ";
@@ -154,4 +216,97 @@ span.number:after {
 }
 li.move.numbered > span.number {
     display: inline;
+}
+
+ul.moves {
+    margin: .25em;
+    padding: .25em;
+    list-style-type: none;
+    background: #fff;
+}
+ul.moves.even {
+    background: #d3d3d3;
+}
+
+table tr:nth-of-type(even) {
+    background-color: #f0f0f0;
+}
+
+nav.top {
+    text-align: left;
+    border-bottom: .15em solid #808080;
+    margin-bottom: .5em;
+    overflow-x: scroll;
+}
+
+nav ul {
+    margin-bottom: .5em;
+    padding-left: 0;
+}
+
+nav ul li {
+    display: inline;
+    padding: .5em;
+    margin-right: .5em;
+    margin-left: .5em;
+}
+
+nav.tabbed ul li {
+    border: .15em solid #808080;
+    border-bottom: 0;
+    border-top-right-radius: .5em;
+    border-top-left-radius: .5em;
+    background-color: #f0f0f0;
+}
+
+nav.tabbed ul li.current {
+    background-color: #808080;
+    color: white;
+}
+
+li.home {
+    font-weight: bold;
+}
+
+
+html, body {
+    height: 100%;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    font-family: sans-serif;
+}
+
+main {
+    display: flex;
+    height: 100%;
+    flex-direction: row;
+}
+
+#board {
+    text-align: center;
+}
+
+#game {
+    overflow-y: hidden;
+    flex: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#game > nav {
+    flex: none;
+    overflow-y: auto;
+    white-space: nowrap;
+}
+
+.scroll {
+    overflow-y: scroll;
+    flex: auto;
+    padding: .5em;
+}
+
+@media screen and (max-width:648px) and (min-height:480px) {
+    main {
+        flex-direction: column;
+    }
 }
