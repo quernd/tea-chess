@@ -11,18 +11,17 @@ least because of Facebook's [[https://reasonml.github.io/][Reason]] -- an altern
 Javascript-like syntax for OCaml. I prefer the traditional OCaml
 syntax, but you can use either syntax together with Bucklescript.
 
-Since I was absolutely not interested in implementing yet another [[http://todomvc.com/][Todo
-app]], I decided to create an interactive chess board with move
-validation (supplied by an external library), drag and drop, move
-logging as well as take-backs. I also implemented a game tree
-representing alternative moves, by using a functional programming
-technique called the [[https://pavpanchekha.com/blog/zippers/huet.html]["zipper"]]. Finally, I added functionality for
-talking to a REST backend.
+Instead of implementing yet another [[http://todomvc.com/][Todo app]], I decided to create an
+interactive chess board with move validation (supplied by an external
+library), drag and drop, move logging as well as take-backs. I also
+implemented a game tree representing alternative moves, by using a
+functional programming technique called the [[https://pavpanchekha.com/blog/zippers/huet.html]["zipper"]]. Finally, I added
+functionality for talking to a REST backend.
 
 In this [[https://en.wikipedia.org/wiki/Twelve_Days_of_Christmas]["Twelve Days of Christmas"]] tutorial, I will walk you through
 the entire example, with version control snapshots along the way. It
 will certainly help if you have a little experience with chess, web
-development and functional programming in general or OCaml in
+development and in particular functional programming in general or OCaml in
 particular, but it is no prerequisite, you can pick up everything you
 need on the way.
 

@@ -143,6 +143,39 @@ let move_list_view ply (past, future) =
      loop 0 (move_list_future_view ply future) past
      |> ul [class' "moves"]
 
+
+let buttons_view =
+  List.map (map board_msg) Board.buttons_view @
+  [ button [onClick Random_button] [text "random move"]
+  ; button [onClick Back_button] [text "back"]
+  ; button [onClick Fwd_button] [text "forward"]
+  ]
+  |> nav [id "buttons"]
+
+let header_nav_view =
+  nav [class' "top"]
+    [ ul []
+        [ li [class' "home"] [text "TEA-Chess"]
+        ; li []
+            [ a [href "https://quernd.github.io/tutorials/tea-chess"]
+                [text "Tutorial"] ]
+        ; li []
+            [ a [href "https://github.com/quernd/tea-chess"]
+                [text "Code"] ]
+        ]
+    ]
+
+let game_nav_view _model =
+  let game_nav_item current link label =
+    li [ if current then class' "current" else noProp ]
+      [ if current then text label else a [href link] [text label] ] in
+  nav [class' "top tabbed"]
+    [ ul []
+        [ game_nav_item true "#/game" "Game"
+        ; game_nav_item false "#/tournament" "Tournament"
+        ]
+    ]
+
 let view model =
   let game_status = Chess.game_status model.position in
   let interactable =
@@ -150,17 +183,18 @@ let view model =
     | Play move_list -> Board.Interactable (model.position.turn, move_list)
     | _ -> Board.Not_interactable
   in
-  div []
-    [ Board.view interactable model.position.ar model.board
-      |> map board_msg
-    ; List.map (map board_msg) Board.buttons_view @
-      [ button [onClick Random_button] [text "random move"]
-      ; button [onClick Back_button] [text "back"]
-      ; button [onClick Fwd_button] [text "forward"]
-      ]
-      |> p []
-    ; Board.result_view game_status
-    ; move_list_view model.ply model.moves
+  main []
+    [ section [id "board"]
+        [ header_nav_view
+        ; Board.view interactable model.position.ar model.board
+          |> map board_msg
+        ; buttons_view
+          (* ; Board.result_view game_status *)
+        ]
+    ; section [id "game"]
+        [ game_nav_view model
+        ; section [class' "scroll"] [move_list_view model.ply model.moves]
+        ]
     ]
 
 
