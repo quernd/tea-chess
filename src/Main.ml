@@ -2,11 +2,17 @@ open Tea
 open Tea.Html
 open Tea.App
 
+type 'a transfer =
+  | Loading
+  | Failed
+  | Received of 'a
+
 type model =
   { position : Chess.position
   ; board : Board.model
   ; moves : (Chess.move * string) Zipper.zipper
   ; ply : int
+  ; tournament : (string * string list) list transfer
   }
 
 type msg =
@@ -17,15 +23,20 @@ type msg =
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
   | Jump of int
+  | Tournament_data of (string, string Http.error) Result.t 
 [@@bs.deriving {accessors}]
 
 
 let init () =
+  let url = "https://lichess.org/api/tournament/GToVqkC9" in
+  let init_cmd =
+    Http.getString url |> Http.send tournament_data in
   { position = Chess.init_position
   ; board = Board.init ()
   ; moves = Zipper.init ()
   ; ply = 0
-  }, Cmd.none
+  ; tournament = Loading
+  }, init_cmd
 
 
 let update model = function
@@ -96,6 +107,21 @@ let update model = function
                else jump_back model.position model.moves n in
         {model with position; moves; ply = model.ply + n}, Cmd.none
     end
+  | Tournament_data (Result.Error e) -> Js.log e;
+    {model with tournament = Failed}, Cmd.none
+  | Tournament_data (Result.Ok data) -> 
+    let open Json.Decoder in
+    let players_decoder = list string in
+    let pairing_decoder = map2 (fun x y -> x, y)
+        (field "id" string)
+        (field "u" players_decoder) in
+    let list_decoder = list pairing_decoder in
+    let pairings_decoder = field "pairings" list_decoder in
+    {model with
+     tournament = match decodeString pairings_decoder data with
+       | Ok tournament -> Received tournament
+       | Error _ -> Failed
+    }, Cmd.none
 
 let move_view ?(highlight=false) current_ply offset (_move, san) =
   let ply = current_ply + offset + 1 in
@@ -165,6 +191,18 @@ let header_nav_view =
         ]
     ]
 
+let tournament_view tournament =
+  match tournament with
+  | Loading -> text "Loading tournament..."
+  | Received tournament' ->
+    List.map
+      (fun (id, players) ->
+         td [] [ a [href (Printf.sprintf "#/pgn/%s" id)] [text id]]::
+         (List.map (fun player -> td [] [text player]) players) |> tr [])
+      tournament'
+    |> table []
+  | Failed -> text "Tournament could not be loaded."
+
 let game_nav_view _model =
   let game_nav_item current link label =
     li [ if current then class' "current" else noProp ]
@@ -193,7 +231,8 @@ let view model =
         ]
     ; section [id "game"]
         [ game_nav_view model
-        ; section [class' "scroll"] [move_list_view model.ply model.moves]
+        ; section [class' "scroll"] (* [move_list_view model.ply model.moves] *)
+            [tournament_view model.tournament]
         ]
     ]
 
