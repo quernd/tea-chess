@@ -37,6 +37,7 @@ type msg =
   | Close_tab of string
 [@@bs.deriving {accessors}]
 
+let proxy = "http://localhost:3000/fetch/"
 
 let view_of_location location =
   let open Web.Location in
@@ -153,7 +154,7 @@ let update model = function
     then model, Cmd.none
     else 
       let url =
-        Printf.sprintf "https://lichess.org/game/export/%s.pgn" id in
+        Printf.sprintf "%shttps://lichess.org/game/export/%s.pgn" proxy id in
       let cmd = Http.getString url |> Http.send (pgn_data id) in
       { model with
         view = Pgn id
