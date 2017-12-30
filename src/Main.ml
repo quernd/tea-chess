@@ -7,12 +7,17 @@ type 'a transfer =
   | Failed
   | Received of 'a
 
+type view =
+  | Game
+  | Tournament
+
 type model =
   { position : Chess.position
   ; board : Board.model
   ; moves : (Chess.move * string) Zipper.zipper
   ; ply : int
   ; tournament : (string * string list) list transfer
+  ; view : view
   }
 
 type msg =
@@ -23,11 +28,20 @@ type msg =
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
   | Jump of int
-  | Tournament_data of (string, string Http.error) Result.t 
+  | Tournament_data of (string, string Http.error) Result.t
+  | Location_change of Web.Location.location
 [@@bs.deriving {accessors}]
 
 
-let init () =
+let view_of_location location =
+  let open Web.Location in
+  match location.hash with
+  | "#/game" -> Game, Cmd.none
+  | "#/tournament" -> Tournament, Cmd.none
+  | _ -> Game, Navigation.modifyUrl "#/game"  (* default route *)
+
+let init () location =
+  let view, cmd = view_of_location location in
   let url = "https://lichess.org/api/tournament/GToVqkC9" in
   let init_cmd =
     Http.getString url |> Http.send tournament_data in
@@ -36,7 +50,8 @@ let init () =
   ; moves = Zipper.init ()
   ; ply = 0
   ; tournament = Loading
-  }, init_cmd
+  ; view
+  }, Cmd.batch [init_cmd; cmd]
 
 
 let update model = function
@@ -122,6 +137,9 @@ let update model = function
        | Ok tournament -> Received tournament
        | Error _ -> Failed
     }, Cmd.none
+  | Location_change location ->
+    let view, cmd = view_of_location location in
+    {model with view}, cmd
 
 let move_view ?(highlight=false) current_ply offset (_move, san) =
   let ply = current_ply + offset + 1 in
@@ -203,14 +221,15 @@ let tournament_view tournament =
     |> table []
   | Failed -> text "Tournament could not be loaded."
 
-let game_nav_view _model =
+
+let game_nav_view model =
   let game_nav_item current link label =
     li [ if current then class' "current" else noProp ]
       [ if current then text label else a [href link] [text label] ] in
   nav [class' "top tabbed"]
     [ ul []
-        [ game_nav_item true "#/game" "Game"
-        ; game_nav_item false "#/tournament" "Tournament"
+        [ game_nav_item (model.view = Game) "#/game" "Game"
+        ; game_nav_item (model.view = Tournament) "#/tournament" "Tournament"
         ]
     ]
 
@@ -231,8 +250,11 @@ let view model =
         ]
     ; section [id "game"]
         [ game_nav_view model
-        ; section [class' "scroll"] (* [move_list_view model.ply model.moves] *)
-            [tournament_view model.tournament]
+        ; section [class' "scroll"]
+            [ match model.view with
+              | Game -> move_list_view model.ply model.moves
+              | Tournament -> tournament_view model.tournament
+            ]
         ]
     ]
 
@@ -244,9 +266,10 @@ let subscriptions model =
 
 
 let main =
-  standardProgram
+  Navigation.navigationProgram location_change
     { init
     ; update
     ; view
     ; subscriptions
+    ; shutdown = (fun _ -> Cmd.none)
     }
