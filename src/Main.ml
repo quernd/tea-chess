@@ -10,6 +10,7 @@ type 'a transfer =
 type view =
   | Game
   | Tournament
+  | Pgn of string
 
 type model =
   { position : Chess.position
@@ -17,6 +18,7 @@ type model =
   ; moves : (Chess.move * string) Zipper.zipper
   ; ply : int
   ; tournament : (string * string list) list transfer
+  ; pgn : (string * string transfer) list (* association list *)
   ; view : view
   }
 
@@ -29,15 +31,20 @@ type msg =
   | Key_pressed of Keyboard.key_event
   | Jump of int
   | Tournament_data of (string, string Http.error) Result.t
-  | Location_change of Web.Location.location
+  | Location_change of Web.Location.location  
+  | Pgn_requested of string
+  | Pgn_data of string * (string, string Http.error) Result.t
+  | Close_tab of string
 [@@bs.deriving {accessors}]
 
 
 let view_of_location location =
   let open Web.Location in
-  match location.hash with
-  | "#/game" -> Game, Cmd.none
-  | "#/tournament" -> Tournament, Cmd.none
+  let route = Chess.split_on_char '/' location.hash in
+  match route with
+  | ["#"; "game"] -> Game, Cmd.none
+  | ["#"; "tournament"] -> Tournament, Cmd.none
+  | ["#"; "pgn"; id] ->  Pgn id, Cmd.msg (Pgn_requested id)
   | _ -> Game, Navigation.modifyUrl "#/game"  (* default route *)
 
 let init () location =
@@ -51,6 +58,7 @@ let init () location =
   ; ply = 0
   ; tournament = Loading
   ; view
+  ; pgn = []
   }, Cmd.batch [init_cmd; cmd]
 
 
@@ -140,6 +148,33 @@ let update model = function
   | Location_change location ->
     let view, cmd = view_of_location location in
     {model with view}, cmd
+  | Pgn_requested id ->
+    if List.mem_assoc id model.pgn
+    then model, Cmd.none
+    else 
+      let url =
+        Printf.sprintf "https://lichess.org/game/export/%s.pgn" id in
+      let cmd = Http.getString url |> Http.send (pgn_data id) in
+      { model with
+        view = Pgn id
+      ; pgn = (id, Loading)::model.pgn
+      }, cmd
+  | Pgn_data (id, Result.Error _e) ->
+    { model with
+      pgn = (id, Failed)::List.remove_assoc id model.pgn
+    }, Cmd.none
+  | Pgn_data (id, Result.Ok data) ->
+    { model with
+      pgn = (id, Received data)::List.remove_assoc id model.pgn
+    }, Cmd.none
+  | Close_tab id ->
+    let pgn = List.remove_assoc id model.pgn in
+    let view = begin match pgn with
+      | (id, _)::_ -> Pgn id
+      | [] -> Tournament
+    end in
+    {model with pgn; view}, Cmd.none
+
 
 let move_view ?(highlight=false) current_ply offset (_move, san) =
   let ply = current_ply + offset + 1 in
@@ -221,16 +256,35 @@ let tournament_view tournament =
     |> table []
   | Failed -> text "Tournament could not be loaded."
 
+let pgn_view id pgn =
+  try match List.assoc id pgn with
+    | Loading -> text "Loading PGN game..."
+    | Received pgn' -> 
+      pre [style "white-space" "pre-wrap"] [text pgn']
+    | Failed -> text "Game could not be loaded."             
+  with Not_found -> text ""
 
 let game_nav_view model =
+  let pgn_nav_item id =
+    li [ if model.view = Pgn id then class' "current" else noProp ]
+      [ if model.view = Pgn id
+        then text id
+        else a [href (Printf.sprintf "#/pgn/%s" id)] [text id]
+      ; span [] [text " "]
+      ; span [ style "cursor" "pointer"
+             ; onClick (Close_tab id)
+             ] [text "(x)"]
+      ] in
+
   let game_nav_item current link label =
     li [ if current then class' "current" else noProp ]
       [ if current then text label else a [href link] [text label] ] in
+
   nav [class' "top tabbed"]
     [ ul []
-        [ game_nav_item (model.view = Game) "#/game" "Game"
-        ; game_nav_item (model.view = Tournament) "#/tournament" "Tournament"
-        ]
+        ([ game_nav_item (model.view = Game) "#/game" "Game"
+         ; game_nav_item (model.view = Tournament) "#/tournament" "Tournament"
+         ] @ (List.rev_map (fun (id, _) -> pgn_nav_item id) model.pgn))
     ]
 
 let view model =
@@ -254,6 +308,7 @@ let view model =
             [ match model.view with
               | Game -> move_list_view model.ply model.moves
               | Tournament -> tournament_view model.tournament
+              | Pgn id -> pgn_view id model.pgn
             ]
         ]
     ]
