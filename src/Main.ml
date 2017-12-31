@@ -7,7 +7,7 @@ type 'a transfer =
   | Failed
   | Received of 'a
 
-type view =
+type route =
   | Game
   | Tournament
   | Pgn of string
@@ -19,7 +19,7 @@ type model =
   ; ply : int
   ; tournament : (string * string list) list transfer
   ; pgn : (string * string transfer) list (* association list *)
-  ; view : view
+  ; route : route
   }
 
 type msg =
@@ -40,7 +40,7 @@ type msg =
 
 let proxy = "http://localhost:3000/fetch/"
 
-let view_of_location location =
+let route_of_location location =
   let open Web.Location in
   let route = Chess.split_on_char '/' location.hash in
   match route with
@@ -50,7 +50,7 @@ let view_of_location location =
   | _ -> Game, Navigation.modifyUrl "#/game"  (* default route *)
 
 let init () location =
-  let view, cmd = view_of_location location in
+  let route, cmd = route_of_location location in
   let url = "https://lichess.org/api/tournament/GToVqkC9" in
   let init_cmd =
     Http.getString url |> Http.send tournament_data in
@@ -59,7 +59,7 @@ let init () location =
   ; moves = Zipper.init ()
   ; ply = 0
   ; tournament = Loading
-  ; view
+  ; route
   ; pgn = []
   }, Cmd.batch [init_cmd; cmd]
 
@@ -148,8 +148,8 @@ let update model = function
        | Error _ -> Failed
     }, Cmd.none
   | Location_change location ->
-    let view, cmd = view_of_location location in
-    {model with view}, cmd
+    let route, cmd = route_of_location location in
+    {model with route}, cmd
   | Pgn_requested id ->
     if List.mem_assoc id model.pgn
     then model, Cmd.none
@@ -158,7 +158,7 @@ let update model = function
         Printf.sprintf "%shttps://lichess.org/game/export/%s.pgn" proxy id in
       let cmd = Http.getString url |> Http.send (pgn_data id) in
       { model with
-        view = Pgn id
+        route = Pgn id
       ; pgn = (id, Loading)::model.pgn
       }, cmd
   | Pgn_data (id, Result.Error _e) ->
@@ -171,11 +171,11 @@ let update model = function
     }, Cmd.msg (Validate_pgn data)
   | Close_tab id ->
     let pgn = List.remove_assoc id model.pgn in
-    let view = begin match pgn with
+    let route = begin match pgn with
       | (id, _)::_ -> Pgn id
       | [] -> Tournament
     end in
-    {model with pgn; view}, Cmd.none
+    {model with pgn; route}, Cmd.none
   | Validate_pgn pgn ->
     try let position, ply, moves = Pgn.game_of_string pgn in
       {model with position; ply; moves}, Cmd.none
@@ -272,8 +272,8 @@ let pgn_view id pgn =
 
 let game_nav_view model =
   let pgn_nav_item id =
-    li [ if model.view = Pgn id then class' "current" else noProp ]
-      [ if model.view = Pgn id
+    li [ if model.route = Pgn id then class' "current" else noProp ]
+      [ if model.route = Pgn id
         then text id
         else a [href (Printf.sprintf "#/pgn/%s" id)] [text id]
       ; span [] [text " "]
@@ -288,8 +288,8 @@ let game_nav_view model =
 
   nav [class' "top tabbed"]
     [ ul []
-        ([ game_nav_item (model.view = Game) "#/game" "Game"
-         ; game_nav_item (model.view = Tournament) "#/tournament" "Tournament"
+        ([ game_nav_item (model.route = Game) "#/game" "Game"
+         ; game_nav_item (model.route = Tournament) "#/tournament" "Tournament"
          ] @ (List.rev_map (fun (id, _) -> pgn_nav_item id) model.pgn))
     ]
 
@@ -311,7 +311,7 @@ let view model =
     ; section [id "game"]
         [ game_nav_view model
         ; section [class' "scroll"]
-            [ match model.view with
+            [ match model.route with
               | Game -> move_list_view model.ply model.moves
               | Tournament -> tournament_view model.tournament
               | Pgn id -> pgn_view id model.pgn
