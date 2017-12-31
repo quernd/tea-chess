@@ -35,6 +35,7 @@ type msg =
   | Pgn_requested of string
   | Pgn_data of string * (string, string Http.error) Result.t
   | Close_tab of string
+  | Validate_pgn of string
 [@@bs.deriving {accessors}]
 
 let proxy = "https://thingproxy.freeboard.io/fetch/"
@@ -167,7 +168,7 @@ let update model = function
   | Pgn_data (id, Result.Ok data) ->
     { model with
       pgn = (id, Received data)::List.remove_assoc id model.pgn
-    }, Cmd.none
+    }, Cmd.msg (Validate_pgn data)
   | Close_tab id ->
     let pgn = List.remove_assoc id model.pgn in
     let view = begin match pgn with
@@ -175,6 +176,10 @@ let update model = function
       | [] -> Tournament
     end in
     {model with pgn; view}, Cmd.none
+  | Validate_pgn pgn ->
+    try let position, ply, moves = Pgn.game_of_string pgn in
+      {model with position; ply; moves}, Cmd.none
+    with _e -> Js.log _e ; model, Cmd.none
 
 
 let move_view ?(highlight=false) current_ply offset (_move, san) =
