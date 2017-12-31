@@ -269,11 +269,12 @@ li.home {
 }
 
 
-html, body {
+html, body, #tea {
     height: 100%;
     margin-top: 0px;
     margin-bottom: 0px;
     font-family: sans-serif;
+    overflow: hidden;
 }
 
 main {
