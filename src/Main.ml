@@ -13,10 +13,8 @@ type route =
   | Pgn of string
 
 type model =
-  { position : Chess.position
+  { game : Game.model
   ; board : Board.model
-  ; moves : (Chess.move * string) Zipper.zipper
-  ; ply : int
   ; tournament : (string * string list) list transfer
   ; pgn : (string * string transfer) list (* association list *)
   ; route : route
@@ -24,12 +22,7 @@ type model =
 
 type msg =
   | Board_msg of Board.msg
-  | Random_button
-  | Back_button
-  | Fwd_button
-  | Random_move of Chess.move
-  | Key_pressed of Keyboard.key_event
-  | Jump of int
+  | Game_msg of Game.msg
   | Tournament_data of (string, string Http.error) Result.t
   | Location_change of Web.Location.location  
   | Pgn_requested of string
@@ -54,10 +47,8 @@ let init () location =
   let url = "https://lichess.org/api/tournament/GToVqkC9" in
   let init_cmd =
     Http.getString url |> Http.send tournament_data in
-  { position = Chess.init_position
+  { game = Game.init ()
   ; board = Board.init ()
-  ; moves = Zipper.init ()
-  ; ply = 0
   ; tournament = Loading
   ; route
   ; pgn = []
@@ -65,73 +56,16 @@ let init () location =
 
 
 let update model = function
-  | Board_msg (Internal_msg msg) ->
-    let board', cmd = Board.update model.board (Internal_msg msg) in
-    { model with
-      board = board'
-    }, Cmd.map board_msg cmd
-  | Random_button ->
-    model,
-    begin match Chess.game_status model.position with
-      | Play move_list ->
-        List.length move_list
-        |> Random.int 0
-        |> Random.generate
-          (fun random_number ->
-             List.nth move_list random_number |> random_move)
-      | _ -> Cmd.none
-    end
-  | Random_move move | Board_msg (Move move) ->
-    let san = Chess.san_of_move model.position move in
-    { model with
-      position = Chess.make_move model.position move
-    ; moves = Zipper.fwd' (move, san) model.moves
-    ; ply = model.ply + 1
-    }, Cmd.none
-  | Back_button ->
-    begin match model.position.prev with
-      | Some position ->
-        { model with
-          moves = Zipper.back model.moves
-        ; position
-        ; ply = model.ply - 1}
-      | _ -> model
-    end, Cmd.none
-  | Fwd_button ->
-    begin try let (move, _san), moves = Zipper.fwd model.moves in
-        { model with
-          position = Chess.make_move model.position move
-        ; moves
-        ; ply = model.ply + 1
-        }, Cmd.none
-      with Zipper.End_of_list -> model, Cmd.none
-    end
-  | Key_pressed key_event ->
-    model,
-    begin match key_event.ctrl, key_event.key_code with
-      | _, 37 (* left *) | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
-      | _, 39 (* right *) | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
-      | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
-      | true, 84 (* Ctrl-t *) -> Cmd.msg Back_button
-      | _ -> Cmd.none
-    end
-  | Jump how_many ->
-    let rec jump_fwd position zipper n =
-      if n <= 0 then position, zipper
-      else let (move, _san), zipper' = Zipper.fwd zipper in
-        jump_fwd (Chess.make_move position move) zipper' (n - 1) in
-    let rec jump_back (position:Chess.position) zipper n =
-      match position.prev, n with
-      | Some position', n when n < 0 ->
-        jump_back position' (Zipper.back zipper) (n + 1)
-      | _ -> position, zipper in
-    begin match how_many with
-      | 0 -> model, Cmd.none
-      | n -> let position, moves =
-               if n > 0 then jump_fwd model.position model.moves n
-               else jump_back model.position model.moves n in
-        {model with position; moves; ply = model.ply + n}, Cmd.none
-    end
+  | Board_msg (Move move) ->
+    let game, cmd = Game.update model.game (Game.Make_move move) in
+    {model with game}, Cmd.map game_msg cmd
+  | Board_msg msg ->
+    let board, cmd = Board.update model.board msg in
+    {model with board}, Cmd.map board_msg cmd
+  | Game_msg msg ->
+    let game, cmd = Game.update model.game msg in
+    {model with game}, Cmd.map game_msg cmd
+
   | Tournament_data (Result.Error e) -> Js.log e;
     {model with tournament = Failed}, Cmd.none
   | Tournament_data (Result.Ok data) -> 
@@ -182,64 +116,10 @@ let update model = function
     {model with pgn; route}, Cmd.none
   | Validate_pgn pgn ->
     try let position, ply, moves = Pgn.game_of_string pgn in
-      {model with position; ply; moves}, Cmd.none
+      {model with game = {position; ply; moves}}, Cmd.none
     with _e -> Js.log _e ; model, Cmd.none
 
 
-let move_view ?(highlight=false) current_ply offset (_move, san) =
-  let ply = current_ply + offset + 1 in
-  let number = ply / 2
-  and w_move = ply mod 2 = 0 in
-  li [ classList [ "move", true
-                 ; "numbered", w_move
-                 ; "highlight", highlight
-                 ] ]
-    [ span [class' "number"] [string_of_int number |> text]
-    ; span
-        [ class' "move"
-        ; if offset <> 0 then onClick (Jump offset) else noProp
-        ] [text san]
-    ]
-
-
-let home_view ~highlight current_ply =
-  li [ classList
-         [ "move", true
-         ; "highlight", highlight ] ]
-    [ span
-        [ class' "move"
-        ; onClick (Jump (-current_ply))
-        ] [text {js|\u2302|js}]
-    ]
-
-
-let move_list_future_view ply future =
-  let rec loop offset cont = function
-    | [] -> cont []
-    | hd::tl ->
-      loop (offset + 1)
-        (fun acc -> move_view ply offset hd::acc
-                    |> cont) tl
-  in loop 1 (fun x -> x) future
-
-let move_list_view ply (past, future) =
-  let rec loop offset acc = function
-    | [] -> acc
-    | hd::tl ->
-      loop (offset - 1)
-        (move_view ~highlight:(offset = 0) ply offset hd::acc) tl
-  in home_view ~highlight:(ply = 0) ply::
-     loop 0 (move_list_future_view ply future) past
-     |> ul [class' "moves"]
-
-
-let buttons_view =
-  List.map (map board_msg) Board.buttons_view @
-  [ button [onClick Random_button] [text "random move"]
-  ; button [onClick Back_button] [text "back"]
-  ; button [onClick Fwd_button] [text "forward"]
-  ]
-  |> nav [id "buttons"]
 
 let header_nav_view =
   nav [class' "top"]
@@ -269,7 +149,7 @@ let tournament_view tournament =
 let pgn_view id model =
   try match List.assoc id model.pgn with
     | Loading -> text "Loading PGN game..."
-    | Received _ -> move_list_view model.ply model.moves
+    | Received _ -> Game.view model.game |> map game_msg
     | Failed -> text "Game could not be loaded."             
   with Not_found -> text ""
 
@@ -297,25 +177,28 @@ let game_nav_view model =
     ]
 
 let view model =
-  let game_status = Chess.game_status model.position in
+  let game_status = Chess.game_status model.game.position in
   let interactable =
     match game_status with
-    | Play move_list -> Board.Interactable (model.position.turn, move_list)
+    | Play move_list -> Board.Interactable (model.game.position.turn, move_list)
     | _ -> Board.Not_interactable
   in
   main []
     [ section [id "board"]
         [ header_nav_view
-        ; Board.view interactable model.position.ar model.board
+        ; Board.view interactable model.game.position.ar model.board
           |> map board_msg
-        ; buttons_view
+          ;
+          List.map (map board_msg) Board.buttons_view @
+          List.map (map game_msg) Game.buttons_view
+          |> nav [id "buttons"]
           (* ; Board.result_view game_status *)
         ]
     ; section [id "game"]
         [ game_nav_view model
         ; section [class' "scroll"]
             [ match model.route with
-              | Game -> move_list_view model.ply model.moves
+              | Game -> Game.view model.game |> map game_msg
               | Tournament -> tournament_view model.tournament
               | Pgn id -> pgn_view id model
             ]
@@ -326,7 +209,7 @@ let view model =
 let subscriptions model =
   Sub.batch
     [ Board.subscriptions model.board |> Sub.map board_msg
-    ; Keyboard.downs key_pressed ]
+    ; Game.subscriptions model.game |> Sub.map game_msg ]
 
 
 let main =
