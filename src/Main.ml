@@ -151,16 +151,20 @@ let update model = function
     let route, cmd = route_of_location location in
     {model with route}, cmd
   | Pgn_requested id ->
-    if List.mem_assoc id model.pgn
-    then model, Cmd.none
-    else 
-      let url =
-        Printf.sprintf "%shttps://lichess.org/game/export/%s.pgn" proxy id in
-      let cmd = Http.getString url |> Http.send (pgn_data id) in
-      { model with
-        route = Pgn id
-      ; pgn = (id, Loading)::model.pgn
-      }, cmd
+    begin
+      try
+        match List.assoc id model.pgn with
+        | Received pgn -> model, Cmd.msg (Validate_pgn pgn)
+        | _ -> model, Cmd.none
+      with Not_found -> 
+        let url =
+          Printf.sprintf "%shttps://lichess.org/game/export/%s.pgn" proxy id in
+        let cmd = Http.getString url |> Http.send (pgn_data id) in
+        { model with
+          route = Pgn id
+        ; pgn = (id, Loading)::model.pgn
+        }, cmd
+    end
   | Pgn_data (id, Result.Error _e) ->
     { model with
       pgn = (id, Failed)::List.remove_assoc id model.pgn
@@ -262,11 +266,10 @@ let tournament_view tournament =
     |> table []
   | Failed -> text "Tournament could not be loaded."
 
-let pgn_view id pgn =
-  try match List.assoc id pgn with
+let pgn_view id model =
+  try match List.assoc id model.pgn with
     | Loading -> text "Loading PGN game..."
-    | Received pgn' -> 
-      pre [style "white-space" "pre-wrap"] [text pgn']
+    | Received _ -> move_list_view model.ply model.moves
     | Failed -> text "Game could not be loaded."             
   with Not_found -> text ""
 
@@ -314,7 +317,7 @@ let view model =
             [ match model.route with
               | Game -> move_list_view model.ply model.moves
               | Tournament -> tournament_view model.tournament
-              | Pgn id -> pgn_view id model.pgn
+              | Pgn id -> pgn_view id model
             ]
         ]
     ]
