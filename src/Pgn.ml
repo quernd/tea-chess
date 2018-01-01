@@ -236,3 +236,9 @@ let game_of_string string =
       List.fold_left advance (Chess.init_position, 0, []) pgn' in
     {position; ply; moves = (past, [])}
   | None -> raise Parse_error
+
+let string_of_game (game:Game.model) =
+  let past, future = game.moves in
+  let moves = List.rev_append past future in
+  let sans = List.map snd moves in
+  String.concat " " sans ^ " *"

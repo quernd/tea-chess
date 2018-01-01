@@ -4,18 +4,18 @@ open Tea.App
 
 open Lens.Infix
 
-module Int = struct
+module IntT = struct
   type t = int
   let compare = compare
 end
 
-module String = struct
+module StringT = struct
   type t = string
   let compare = compare
 end
 
-module IntMap = Map.Make(Int)
-module StringMap = Map.Make(String)
+module IntMap = Map.Make(IntT)
+module StringMap = Map.Make(StringT)
 
 module MapLens(Key : Map.OrderedType) = struct
   let for_key key =
@@ -26,8 +26,8 @@ module MapLens(Key : Map.OrderedType) = struct
     }
 end
 
-module IntMapLens = MapLens(Int)
-module StringMapLens = MapLens(String)
+module IntMapLens = MapLens(IntT)
+module StringMapLens = MapLens(StringT)
 
 type 'a transfer =
   | Idle
@@ -70,7 +70,10 @@ type msg =
   | Board_msg of Board.msg
   | Game_msg of Game.msg
   | Key_pressed of Keyboard.key_event
-  | Save_scratch
+  | New_tab
+  | Save_games
+  | Clear_games
+  | Games_loaded of (string * string) list
   | Load_tournament
   | Tournament_data of (string, string Http.error) Result.t
   | Location_change of Web.Location.location  
@@ -133,6 +136,27 @@ let update_route model route =
     | _ -> {model with route = Scratch; game = scratch_lens}, Cmd.none
 
 
+let load_games =
+  Ex.LocalStorage.length
+  |> Tea_task.andThen (fun length ->
+      let rec loop i acc =
+        if i >= 0 then
+          loop (i - 1) (Ex.LocalStorage.key i::acc)
+        else acc in
+      loop length [] |> Tea_task.sequence
+    )
+  |> Tea_task.andThen (fun keys ->
+      List.map
+        (fun key ->
+           (Ex.LocalStorage.getItem key
+            |> Tea_task.map (fun value -> (key, value))
+           )
+        ) keys
+      |> Tea_task.sequence)
+  |> Tea_task.attemptOpt (function | Ok games -> Some (Games_loaded games)
+                                   | Error _ -> None)
+
+
 let init_model =
   { scratch_game = Game.init ()
   ; game = scratch_lens
@@ -144,7 +168,9 @@ let init_model =
   }
 
 let init () location =
-  route_of_location location |> update_route init_model
+  let model, cmd =
+    route_of_location location |> update_route init_model in
+  model, Cmd.batch [cmd; load_games]
 
 
 let update model = function
@@ -168,7 +194,7 @@ let update model = function
       | true, 84 (* Ctrl-t *) -> Cmd.msg (Game_msg Back_button)
       | _ -> Cmd.none
     end
-  | Save_scratch ->
+  | New_tab ->
     let key = try (IntMap.max_binding model.local_games |> fst) + 1
       with Not_found -> 1 in
     update_route
@@ -176,6 +202,37 @@ let update model = function
         local_games = IntMap.add key (model |. model.game) model.local_games
       ; scratch_game = Game.init ()
       } (Local key)
+  | Save_games ->
+    let keys, cmds =
+      IntMap.fold
+        (fun key game (acc_keys, acc_pgn) ->
+           let key' = string_of_int key in
+           let pgn = Pgn.string_of_game game in
+           (key'::acc_keys),
+           (Ex.LocalStorage.setItemCmd key' pgn::acc_pgn))
+        model.local_games
+        ([], []) in
+    let games = String.concat " " keys in
+    let cmd = Ex.LocalStorage.setItemCmd "games" games in
+    model, cmd::cmds |> Cmd.batch
+  | Games_loaded list ->
+    begin try
+        let games =
+          List.assoc "games" list
+          |> Chess.split_on_char ' ' in
+        let local_games =
+          List.fold_left
+            (fun acc v ->
+               IntMap.add
+                 (int_of_string v)
+                 (List.assoc v list |> Pgn.game_of_string)
+                 acc
+            ) IntMap.empty games in
+        {model with local_games}, Cmd.none
+      with e -> Js.log e; model, Cmd.none
+    end
+  | Clear_games ->
+    model, Ex.LocalStorage.clearCmd ()
   | Load_tournament ->
     let url = "https://lichess.org/api/tournament/GToVqkC9" in
     {model with route = Tournament; tournament = Loading},
@@ -264,14 +321,19 @@ let game_nav_view model =
          ::(IntMap.fold g model.local_games (fun x -> x)) [])
     ]
 
+let buttons_view =
+  nav []
+    [ button [onClick New_tab] [text "new tab"]
+    ; button [onClick Save_games] [text "save all games in local storage"]
+    ; button [onClick Clear_games] [text "clear local storage"]
+    ; button [onClick Load_tournament] [text "load a game from Lichess"]
+    ]
+
 let scratch_view =
   div []
-    [ nav []
-        [ button [onClick Save_scratch] [text "save this game"]
-        ; button [onClick Load_tournament] [text "load a game from Lichess"]
-        ]
+    [ buttons_view
     ; p []
-        [ text "This is a scratch buffer.  Moves you make will not be saved in the browser's local storage." ]
+        [ text "This is a scratch buffer.  Click \"new tab\" to open the game in a separate tab."]
     ]
 
 
@@ -300,8 +362,7 @@ let view model =
             begin match model.route with
               | Scratch -> scratch_view::[game_view]
               | Tournament -> [tournament_view model.tournament]
-              | Lichess _ -> [game_view]
-              | _ -> [game_view]
+              | _ -> buttons_view::[game_view]
             end
         ]
     ]
