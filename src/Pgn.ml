@@ -219,6 +219,8 @@ let move_of_pgn_move position move =
 
 
 let game_of_string string =
+  let open Game in
+
   let advance (position, ply, acc) (move:pgn_move) =
     let move' = move_of_pgn_move position move.move in
     let position' = Chess.make_move position move' in
@@ -232,5 +234,5 @@ let game_of_string string =
   | Some (_, pgn', _) ->
     let position, ply, past =
       List.fold_left advance (Chess.init_position, 0, []) pgn' in
-    (position, ply, (past, []))
+    {position; ply; moves = (past, [])}
   | None -> raise Parse_error

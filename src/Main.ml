@@ -41,7 +41,7 @@ type model =
   ; scratch_game : Game.model
   ; local_games : Game.model IntMap.t
   ; tournament : (string * string list) list transfer
-  ; lichess_games : (int * string transfer) StringMap.t
+  ; lichess_games : int StringMap.t
   ; route : route
   }
 and game_lens = (model, Game.model) Lens.t
@@ -50,7 +50,6 @@ and route =
   | Lichess of string
   | Scratch
   | Tournament
-
 
 
 let local_lens = let open Lens in
@@ -67,7 +66,6 @@ let scratch_lens = let open Lens in
   }
 
 
-
 type msg =
   | Board_msg of Board.msg
   | Game_msg of Game.msg
@@ -77,7 +75,7 @@ type msg =
   | Tournament_data of (string, string Http.error) Result.t
   | Location_change of Web.Location.location  
   | Pgn_requested of string
-  | Pgn_data of string * (string, string Http.error) Result.t
+  | Pgn_data of game_lens * (string, string Http.error) Result.t
   | Close_tab of string
   | Validate_pgn of string
 [@@bs.deriving {accessors}]
@@ -106,7 +104,32 @@ let update_route model route =
     match route with
     | Local id when IntMap.mem id model.local_games ->
       let game = local_lens |-- IntMapLens.for_key id in
-      {model with route; game}, Cmd.none
+      {model with route; game},
+      location_of_route route |> Navigation.modifyUrl
+    | Lichess game_id ->
+      begin try
+          let id = StringMap.find game_id model.lichess_games in
+          let game = local_lens |-- IntMapLens.for_key id in
+          let route = Local id in
+          {model with route; game},
+          location_of_route route |> Navigation.modifyUrl
+        with Not_found ->
+          let key = begin try (IntMap.max_binding model.local_games |> fst) + 1
+            with Not_found -> 1 end in
+          let game = local_lens |-- IntMapLens.for_key key in
+          let route = Local key in
+          { model with
+            route
+          ; local_games = IntMap.add key (Game.init ()) model.local_games
+          ; game
+          ; lichess_games = StringMap.add game_id key model.lichess_games },
+          Cmd.batch
+            [ location_of_route route |> Navigation.modifyUrl
+            ; Printf.sprintf
+                "%shttps://lichess.org/game/export/%s.pgn" proxy game_id
+              |> Http.getString
+              |> Http.send (pgn_data game) ]
+      end
     | _ -> {model with route = Scratch; game = scratch_lens}, Cmd.none
 
 
@@ -147,7 +170,7 @@ let update model = function
     end
   | Save_scratch ->
     let key = try (IntMap.max_binding model.local_games |> fst) + 1
-      with Not_found -> 0 in
+      with Not_found -> 1 in
     update_route
       { model with
         local_games = IntMap.add key (model |. model.game) model.local_games
@@ -157,9 +180,9 @@ let update model = function
     let url = "https://lichess.org/api/tournament/GToVqkC9" in
     {model with route = Tournament; tournament = Loading},
     Http.getString url |> Http.send tournament_data
-  | Tournament_data (Result.Error e) -> Js.log e;
+  | Tournament_data (Error _e) ->
     {model with tournament = Failed}, Cmd.none
-  | Tournament_data (Result.Ok data) -> 
+  | Tournament_data (Ok data) -> 
     let open Json.Decoder in
     let players_decoder = list string in
     let pairing_decoder = map2 (fun x y -> x, y)
@@ -172,6 +195,11 @@ let update model = function
        | Ok tournament -> Received tournament
        | Error _ -> Failed
     }, Cmd.none
+  | Pgn_data (lens, (Ok data)) ->
+    begin try
+        let game = Pgn.game_of_string data in
+        model |> lens ^= game, Cmd.none
+      with _e -> model, Cmd.none end
   | Location_change location ->
     route_of_location location |> update_route model
   | _ -> model, Cmd.none
@@ -198,7 +226,7 @@ let tournament_view tournament =
   | Received tournament' ->
     List.map
       (fun (id, players) ->
-         td [] [ a [href (Printf.sprintf "#/pgn/%s" id)] [text id]]::
+         td [] [ a [href (Printf.sprintf "#/lichess/%s" id)] [text id]]::
          (List.map (fun player -> td [] [text player]) players) |> tr [])
       tournament'
     |> table []
@@ -272,6 +300,7 @@ let view model =
             begin match model.route with
               | Scratch -> scratch_view::[game_view]
               | Tournament -> [tournament_view model.tournament]
+              | Lichess _ -> [game_view]
               | _ -> [game_view]
             end
         ]
