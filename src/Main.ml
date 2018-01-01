@@ -109,6 +109,8 @@ let update_route model route =
       let game = local_lens |-- IntMapLens.for_key id in
       {model with route; game},
       location_of_route route |> Navigation.modifyUrl
+    | Local _ -> {model with route},
+                 location_of_route route |> Navigation.modifyUrl
     | Lichess game_id ->
       begin try
           let id = StringMap.find game_id model.lichess_games in
@@ -199,7 +201,7 @@ let update model = function
       with Not_found -> 1 in
     update_route
       { model with
-        local_games = IntMap.add key (model |. model.game) model.local_games
+        local_games = IntMap.add key (Game.init ()) model.local_games
       ; scratch_game = Game.init ()
       } (Local key)
   | Save_games ->
@@ -228,7 +230,11 @@ let update model = function
                  (List.assoc v list |> Pgn.game_of_string)
                  acc
             ) IntMap.empty games in
-        {model with local_games}, Cmd.none
+        let game =
+          match model.route with
+          | Local id -> local_lens |-- IntMapLens.for_key id
+          | _ -> model.game in        
+        {model with local_games; game}, Cmd.none
       with e -> Js.log e; model, Cmd.none
     end
   | Clear_games ->
