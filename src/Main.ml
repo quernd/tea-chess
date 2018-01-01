@@ -339,7 +339,7 @@ let scratch_view =
   div []
     [ buttons_view
     ; p []
-        [ text "This is a scratch buffer.  Click \"new tab\" to open the game in a separate tab."]
+        [ text "This is a scratch buffer.  Click \"new tab\" to open a new game in a separate tab."]
     ]
 
 
