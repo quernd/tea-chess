@@ -10,7 +10,6 @@ type model =
   }
 
 type msg =
-  | Key_pressed of Keyboard.key_event
   | Random_button
   | Back_button
   | Fwd_button
@@ -59,15 +58,6 @@ let update model = function
         ; ply = model.ply + 1
         }, Cmd.none
       with Zipper.End_of_list -> model, Cmd.none
-    end
-  | Key_pressed key_event ->
-    model,
-    begin match key_event.ctrl, key_event.key_code with
-      | _, 37 (* left *) | true, 66 (* Ctrl-b *) -> Cmd.msg Back_button
-      | _, 39 (* right *) | true, 70 (* Ctrl-f *) -> Cmd.msg Fwd_button
-      | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
-      | true, 84 (* Ctrl-t *) -> Cmd.msg Back_button
-      | _ -> Cmd.none
     end
   | Jump how_many ->
     let rec jump_fwd position zipper n =
@@ -141,6 +131,3 @@ let move_list_view ply (past, future) =
 let view model =
   move_list_view model.ply model.moves
   |> ul [class' "moves"]
-
-let subscriptions _ =
-  Keyboard.downs key_pressed 

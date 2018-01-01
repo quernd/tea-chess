@@ -23,6 +23,7 @@ type model =
 type msg =
   | Board_msg of Board.msg
   | Game_msg of Game.msg
+  | Key_pressed of Keyboard.key_event
   | Tournament_data of (string, string Http.error) Result.t
   | Location_change of Web.Location.location  
   | Pgn_requested of string
@@ -65,7 +66,17 @@ let update model = function
   | Game_msg msg ->
     let game, cmd = Game.update model.game msg in
     {model with game}, Cmd.map game_msg cmd
-
+  | Key_pressed key_event ->
+    model,
+    begin match key_event.ctrl, key_event.key_code with
+      | _, 37 (* left *) | true, 66 (* Ctrl-b *) ->
+        Cmd.msg (Game_msg Back_button)
+      | _, 39 (* right *) | true, 70 (* Ctrl-f *) ->
+        Cmd.msg (Game_msg Fwd_button)
+      | true, 82 (* Ctrl-r *) -> Cmd.msg (Game_msg Random_button)
+      | true, 84 (* Ctrl-t *) -> Cmd.msg (Game_msg Back_button)
+      | _ -> Cmd.none
+    end
   | Tournament_data (Result.Error e) -> Js.log e;
     {model with tournament = Failed}, Cmd.none
   | Tournament_data (Result.Ok data) -> 
@@ -207,9 +218,9 @@ let view model =
 
 
 let subscriptions model =
-  Sub.batch
-    [ Board.subscriptions model.board |> Sub.map board_msg
-    ; Game.subscriptions model.game |> Sub.map game_msg ]
+  Sub.batch [ Board.subscriptions model.board |> Sub.map board_msg
+            ; Keyboard.downs key_pressed
+            ]
 
 
 let main =
