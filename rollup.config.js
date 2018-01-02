@@ -10,7 +10,7 @@ export default {
     },
     plugins: process.env.BUILD == "demo" ? [
         node_resolve({module: true, browser: true}),
-	uglifyjs({mangle: false})
+	uglify({mangle: false})
     ] : [
         node_resolve({module: true, browser: true}),
         livereload('release')
