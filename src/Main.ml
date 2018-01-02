@@ -109,8 +109,8 @@ let update_route model route =
       let game = local_lens |-- IntMapLens.for_key id in
       {model with route; game},
       location_of_route route |> Navigation.modifyUrl
-    | Local _ -> {model with route},
-                 location_of_route route |> Navigation.modifyUrl
+    | Local _ -> {model with route = Scratch},
+                 location_of_route Scratch |> Navigation.modifyUrl
     | Lichess game_id ->
       begin try
           let id = StringMap.find game_id model.lichess_games in
