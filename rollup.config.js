@@ -9,7 +9,8 @@ export default {
         format: 'iife'
     },
     plugins: process.env.BUILD == "demo" ? [
-        node_resolve({module: true, browser: true})
+        node_resolve({module: true, browser: true}),
+	uglifyjs({mangle: false})
     ] : [
         node_resolve({module: true, browser: true}),
         livereload('release')
