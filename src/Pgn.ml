@@ -221,24 +221,22 @@ let move_of_pgn_move position move =
 let game_of_string string =
   let open Game in
 
-  let advance (position, ply, acc) (move:pgn_move) =
-    let move' = move_of_pgn_move position move.move in
-    let position' = Chess.make_move position move' in
-    let san = Chess.san_of_move position move' in
-    let acc' = (move', san)::acc in
-    (position', ply + 1, acc')
+  let advance game (move:pgn_move) =
+    let move' = move_of_pgn_move game.position move.move in
+    let position = Chess.make_move game.position move' in
+    let san = Chess.san_of_move game.position move' in
+    let _, moves = Zipper.tree_fwd' (move', san) game.moves in
+    {position; ply = game.ply + 1; moves}
   in
 
   let pgn = LazyStream.of_string string |> parse pgn_game in
   match pgn with
   | Some (_, pgn', _) ->
-    let position, ply, past =
-      List.fold_left advance (Chess.init_position, 0, []) pgn' in
-    {position; ply; moves = (past, [])}
+    List.fold_left advance (Game.init ()) pgn'
   | None -> raise Parse_error
 
 let string_of_game (game:Game.model) =
-  let past, future = game.moves in
+  let (_context, past), future = game.moves in
   let moves = List.rev_append past future in
-  let sans = List.map snd moves in
+  let sans = List.map (fun (Zipper.Node ((_, san), _)) -> san) moves in
   String.concat " " sans ^ " *"

@@ -3,8 +3,10 @@ open Tea.Html
 
 type san = string
 
+type move = (Chess.move * san)
+
 type model =
-  { moves : (Chess.move * san) Zipper.zipper
+  { moves : move Zipper.tree_zipper
   ; position : Chess.position
   ; ply : int
   }
@@ -20,7 +22,7 @@ type msg =
 
 let init () =
   { position = Ochess.init_position
-  ; moves = Zipper.init ()
+  ; moves = Zipper.tree_init ()
   ; ply = 0
   }
 
@@ -39,20 +41,21 @@ let update model = function
     end
   | Make_move move ->
     let san = Chess.san_of_move model.position move in
+    let _, moves = Zipper.tree_fwd' (move, san) model.moves in
     { position = Chess.make_move model.position move
-    ; moves = Zipper.fwd' (move, san) model.moves
+    ; moves
     ; ply = model.ply + 1
     }, Cmd.none
   | Back_button ->
     begin match model.position.prev with
       | Some position ->
-        { moves = Zipper.back model.moves
+        { moves = Zipper.tree_back model.moves
         ; position
         ; ply = model.ply - 1}
       | _ -> model
     end, Cmd.none
   | Fwd_button ->
-    begin try let (move, _san), moves = Zipper.fwd model.moves in
+    begin try let (move, _san), moves = Zipper.tree_fwd model.moves in
         { position = Chess.make_move model.position move
         ; moves
         ; ply = model.ply + 1
@@ -62,12 +65,12 @@ let update model = function
   | Jump how_many ->
     let rec jump_fwd position zipper n =
       if n <= 0 then position, zipper
-      else let (move, _san), zipper' = Zipper.fwd zipper in
+      else let (move, _san), zipper' = Zipper.tree_fwd zipper in
         jump_fwd (Chess.make_move position move) zipper' (n - 1) in
     let rec jump_back (position:Chess.position) zipper n =
       match position.prev, n with
       | Some position', n when n < 0 ->
-        jump_back position' (Zipper.back zipper) (n + 1)
+        jump_back position' (Zipper.tree_back zipper) (n + 1)
       | _ -> position, zipper in
     begin match how_many with
       | 0 -> model, Cmd.none
@@ -85,7 +88,8 @@ let buttons_view =
   ]
 
 
-let move_view ?(highlight=false) current_ply offset (_move, san) =
+let move_view ?(highlight=false) current_ply offset
+    (Zipper.Node ((_move, san), _var)) =
   let ply = current_ply + offset + 1 in
   let number = ply / 2
   and w_move = ply mod 2 = 0 in
@@ -129,5 +133,6 @@ let move_list_view ply (past, future) =
      loop 0 (move_list_future_view ply future) past
 
 let view model =
-  move_list_view model.ply model.moves
+  let (_context, past), future = model.moves in
+  move_list_view model.ply (past, future)
   |> ul [class' "moves"]
