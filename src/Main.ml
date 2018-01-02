@@ -4,6 +4,15 @@ open Tea.App
 
 open Lens.Infix
 
+
+type t = <
+  postMessage : string -> unit [@bs.meth];
+> Js.t
+
+external stockfish : t = "stockfish" [@@bs.val]
+
+let () = stockfish##postMessage "go depth 20"
+
 module IntT = struct
   type t = int
   let compare = compare
