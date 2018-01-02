@@ -221,7 +221,7 @@ let update model = function
     begin try
         let games =
           List.assoc "games" list
-          |> Chess.split_on_char ' ' in
+          |> Js.String.split " " |> Array.to_list in
         let local_games =
           List.fold_left
             (fun acc v ->
