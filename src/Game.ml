@@ -161,7 +161,7 @@ let view model =
   let make_variations = function
     | [] -> noNode
     | variations -> ol [class' "variations"] variations in
-  let make_variation = li [class' "variation"] in
+  let make_variation moves = li [class' "variation"] [make_line moves] in
 
   let rec move_view move variations =
     li [class' "move"]
