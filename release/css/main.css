@@ -217,6 +217,9 @@ span.number:after {
 li.move.numbered > span.number {
     display: inline;
 }
+li.move.ply > span.ply, li.move.variations + li.move > span.ply {
+    display: inline;
+}
 
 ul.moves {
     margin: .25em;

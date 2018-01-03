@@ -93,51 +93,108 @@ let buttons_view =
   ]
 
 
-let move_view ?(highlight=false) current_ply offset
-    (Zipper.Node ((_move, san), _var)) =
-  let ply = current_ply + offset + 1 in
-  let number = ply / 2
-  and w_move = ply mod 2 = 0 in
-  li [ classList [ "move", true
-                 ; "numbered", w_move
-                 ; "highlight", highlight
-                 ] ]
-    [ span [class' "number"] [string_of_int number |> text]
-    ; span
-        [ class' "move"
-        ; if offset <> 0 then onClick (Jump offset) else noProp
-        ] [text san]
-    ]
+let pgn_of_game (game:model) =
 
-let home_view ~highlight current_ply =
-  li [ classList
-         [ "move", true
-         ; "highlight", highlight ] ]
-    [ span
-        [ class' "move"
-        ; onClick (Jump (-current_ply))
-        ] [text {js|\u2302|js}]
-    ]
+  let line moves = String.concat " " moves in
+  let parens moves = line moves |> Printf.sprintf "(%s)" in
 
-let move_list_future_view ply future =
-  let rec loop offset cont = function
+  let rec pgn_of_move move variations =
+    snd move::variations |> line
+  and pgn_of_node = function
+    | Zipper.Node (move, variations) ->
+      pgn_of_move move (pgn_of_variations variations)
+  and pgn_of_variations variations =
+    List.map pgn_of_variation variations
+  and pgn_of_variation = function
+    | Zipper.Var (move, line) ->
+      (pgn_of_move move []::pgn_of_line line) |> parens
+  and pgn_of_line line =
+    List.map pgn_of_node line in
+
+  let rec pgn_of_tree_context ((context, past), future) inner =
+    begin match inner with
+      | Some a -> a::pgn_of_line future
+      | None -> pgn_of_line future
+    end
+    |> List.rev_append (pgn_of_line past)
+    |> pgn_of_line_context context
+
+  and pgn_of_line_context context inner =
+    match context with
+    | Zipper.Main_line -> inner
+    | Zipper.Var_line (context, main, left, var_move, right, future) ->
+      let this_var = pgn_of_move var_move []::inner |> parens in
+      let variations =
+        List.rev_append (pgn_of_variations left)
+          (this_var::pgn_of_variations right) in
+      Some (snd main::variations |> line)
+      |> pgn_of_tree_context (context, future)
+  in
+
+  (pgn_of_tree_context game.moves None |> line)
+(* TODO: add headers *)
+
+
+let id x = x
+
+(* fold_right' is like right fold, but carrying an additional 
+   accumulator c that is updated by g and applied together with f *)
+let fold_right' f g =  (* c l *)
+  let rec loop cont c = function
+    | hd::tl ->
+      let c' = g c in
+      loop (fun acc' -> cont (f c hd::acc')) c' tl
     | [] -> cont []
-    | hd::tl ->
-      loop (offset + 1)
-        (fun acc -> move_view ply offset hd::acc
-                    |> cont) tl
-  in loop 1 (fun x -> x) future
+  in loop id
 
-let move_list_view ply (past, future) =
-  let rec loop offset acc = function
-    | [] -> acc
-    | hd::tl ->
-      loop (offset - 1)
-        (move_view ~highlight:(offset = 0) ply offset hd::acc) tl
-  in home_view ~highlight:(ply = 0) ply::
-     loop 0 (move_list_future_view ply future) past
+(* fold_left' is like left fold, but carrying an additional 
+   accumulator c that is updated by g and applied together with f *)
+let fold_left f g acc c l =  
+  List.fold_left
+    (fun (acc, c) item -> f c item::acc, g c)
+    (acc, c) l
+
 
 let view model =
-  let (_context, past), future = model.moves in
-  move_list_view model.ply (past, future)
-  |> ul [class' "moves"]
+
+  let make_line = ul [class' "moves"] in
+  let make_variations = function
+    | [] -> noNode
+    | variations -> ol [class' "variations"] variations in
+  let make_variation = li [class' "variation"] in
+
+  let rec move_view move variations =
+    li [class' "move"]
+      [ snd move |> text
+      ; variations
+      ]
+  and node_view = function
+    | Zipper.Node (move, variations) ->
+      move_view move (variations_view variations |> make_variations)
+  and variations_view variations =
+    List.map variation_view variations
+  and variation_view = function
+    | Zipper.Var (move, line) ->
+      (move_view move noNode::line_view line) |> make_variation
+  and line_view line =
+    List.map node_view line in
+
+  let rec tree_context_view ((context, past), future) inner =
+    inner::line_view future
+    |> List.rev_append (line_view past)
+    |> line_context_view context
+
+  and line_context_view context inner =
+    match context with
+    | Zipper.Main_line -> inner
+    | Zipper.Var_line (context, main, left, var_move, right, future) ->
+      let this_var = move_view var_move noNode::inner |> make_variation in
+      let variations =
+        List.rev_append (variations_view left)
+          (this_var::variations_view right)
+        |> make_variations in
+      move_view main variations
+      |> tree_context_view (context, future)
+  in
+  tree_context_view model.moves noNode
+  |> make_line

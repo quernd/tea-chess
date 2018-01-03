@@ -219,9 +219,8 @@ let move_of_pgn_move position move =
 
 
 let game_of_string string =
-  let open Game in
 
-  let advance game (move:pgn_move) =
+  let advance (game:Game.model) (move:pgn_move) : Game.model =
     let move' = move_of_pgn_move game.position move.move in
     let position = Chess.make_move game.position move' in
     let san = Chess.san_of_move game.position move' in
@@ -233,7 +232,7 @@ let game_of_string string =
   match pgn with
   | Some (_, pgn', _) ->
     List.fold_left advance (Game.init ()) pgn'
-  | None -> raise Parse_error
+  | None -> Js.log string; raise Parse_error
 
 let string_of_game (game:Game.model) =
   let (_context, past), future = game.moves in

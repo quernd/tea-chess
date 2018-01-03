@@ -176,7 +176,7 @@ let init () location =
 
 
 let update model = function
-  | Board_msg (Move move) ->
+  | Board_msg (Move move) -> Js.log (model |. model.game |> Game.pgn_of_game) ;
     let game, cmd = Game.update (model |. model.game) (Game.Make_move move) in
     model |> model.game ^= game, Cmd.map game_msg cmd
   | Board_msg msg ->
@@ -209,7 +209,7 @@ let update model = function
       IntMap.fold
         (fun key game (acc_keys, acc_pgn) ->
            let key' = string_of_int key in
-           let pgn = Pgn.string_of_game game in
+           let pgn = Game.pgn_of_game game in
            (key'::acc_keys),
            (Ex.LocalStorage.setItemCmd key' pgn::acc_pgn))
         model.local_games
