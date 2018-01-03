@@ -49,9 +49,14 @@ let update model = function
   | Back_button ->
     begin match model.position.prev with
       | Some position ->
-        { moves = Zipper.tree_back model.moves
-        ; position
-        ; ply = model.ply - 1}
+        begin try { moves = Zipper.tree_back model.moves
+                  ; position
+                  ; ply = model.ply - 1}
+          with Zipper.Beginning_of_list ->
+            { moves = Zipper.tree_up model.moves |> snd |> Zipper.tree_back
+            ; position
+            ; ply = model.ply - 1}
+        end
       | _ -> model
     end, Cmd.none
   | Fwd_button ->
