@@ -112,10 +112,7 @@ let pgn_of_game (game:model) =
     List.map pgn_of_node line in
 
   let rec pgn_of_tree_context ((context, past), future) inner =
-    begin match inner with
-      | Some a -> a::pgn_of_line future
-      | None -> pgn_of_line future
-    end
+    inner::pgn_of_line future
     |> List.rev_append (pgn_of_line past)
     |> pgn_of_line_context context
 
@@ -127,11 +124,15 @@ let pgn_of_game (game:model) =
       let variations =
         List.rev_append (pgn_of_variations left)
           (this_var::pgn_of_variations right) in
-      Some (snd main::variations |> line)
+      snd main::variations |> line
       |> pgn_of_tree_context (context, future)
   in
 
-  (pgn_of_tree_context game.moves None |> line)
+  let (context, past), future = game.moves in
+  pgn_of_line future
+  |> List.rev_append (pgn_of_line past)
+  |> pgn_of_line_context context
+  |> line
 (* TODO: add headers *)
 
 
@@ -196,5 +197,8 @@ let view model =
       move_view main variations
       |> tree_context_view (context, future)
   in
-  tree_context_view model.moves noNode
+  let (context, past), future = model.moves in
+  line_view future
+  |> List.rev_append (line_view past)
+  |> line_context_view context
   |> make_line
