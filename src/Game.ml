@@ -16,9 +16,15 @@ type msg =
   | Back_button
   | Fwd_button
   | Make_move of Chess.move
-  | Jump of int
 [@@bs.deriving {accessors}]
 
+type action = Fwd | Back | Down | Next | Prev | Up
+
+type c =
+  { ply : int
+  ; actions : action list
+  ; depth : int
+  }
 
 let init () =
   { position = Ochess.init_position
@@ -26,6 +32,28 @@ let init () =
   ; ply = 0
   }
 
+exception No_prev_position
+
+let back model =
+  match model.position.prev with
+  | Some position ->
+    begin try { moves = Zipper.tree_back model.moves
+              ; position
+              ; ply = model.ply - 1}
+      with Zipper.Beginning_of_list ->
+        { moves = Zipper.tree_up model.moves |> snd |> Zipper.tree_back
+        ; position
+        ; ply = model.ply - 1}
+    end
+  | _ -> raise No_prev_position
+
+let fwd model =
+  try let (move, _san), moves = Zipper.tree_fwd model.moves in
+    { position = Chess.make_move model.position move
+    ; moves
+    ; ply = model.ply + 1
+    }
+  with Zipper.End_of_list -> model
 
 let update model = function
   | Random_button ->
@@ -47,43 +75,10 @@ let update model = function
     ; ply = model.ply + 1
     }, Cmd.none
   | Back_button ->
-    begin match model.position.prev with
-      | Some position ->
-        begin try { moves = Zipper.tree_back model.moves
-                  ; position
-                  ; ply = model.ply - 1}
-          with Zipper.Beginning_of_list ->
-            { moves = Zipper.tree_up model.moves |> snd |> Zipper.tree_back
-            ; position
-            ; ply = model.ply - 1}
-        end
-      | _ -> model
-    end, Cmd.none
+    begin try back model with _ -> model end, Cmd.none
   | Fwd_button ->
-    begin try let (move, _san), moves = Zipper.tree_fwd model.moves in
-        { position = Chess.make_move model.position move
-        ; moves
-        ; ply = model.ply + 1
-        }, Cmd.none
-      with Zipper.End_of_list -> model, Cmd.none
-    end
-  | Jump how_many ->
-    let rec jump_fwd position zipper n =
-      if n <= 0 then position, zipper
-      else let (move, _san), zipper' = Zipper.tree_fwd zipper in
-        jump_fwd (Chess.make_move position move) zipper' (n - 1) in
-    let rec jump_back (position:Chess.position) zipper n =
-      match position.prev, n with
-      | Some position', n when n < 0 ->
-        jump_back position' (Zipper.tree_back zipper) (n + 1)
-      | _ -> position, zipper in
-    begin match how_many with
-      | 0 -> model, Cmd.none
-      | n -> let position, moves =
-               if n > 0 then jump_fwd model.position model.moves n
-               else jump_back model.position model.moves n in
-        {position; moves; ply = model.ply + n}, Cmd.none
-    end
+    begin try fwd model with _ -> model end, Cmd.none
+
 
 
 let buttons_view =
@@ -156,6 +151,7 @@ let fold_left f g acc c l =
     (acc, c) l
 
 
+
 let view model =
 
   let make_line = ul [class' "moves"] in
@@ -164,41 +160,60 @@ let view model =
     | variations -> ol [class' "variations"] variations in
   let make_variation moves = li [class' "variation"] [make_line moves] in
 
-  let rec move_view move variations =
-    li [class' "move"]
-      [ snd move |> text
+
+  let fwd_c c = {c with ply = c.ply + 1} in
+  let back_c c = {c with ply = c.ply - 1} in
+
+
+  let rec move_view c move variations =
+    let number = c.ply / 2 + 1
+    and w_move = c.ply mod 2 = 0 in
+    li [ classList
+           [ "move", true
+           ; "numbered", w_move
+           ; "white", w_move
+           ; "black", not w_move
+           ; "variations", variations <> noNode
+           ]
+       ]
+      [ span [class' "number"]
+          [ string_of_int number |> text ]
+      ; span [class' "move"]
+          [ snd move |> text ]
       ; variations
       ]
-  and node_view = function
+  and node_view c = function
     | Zipper.Node (move, variations) ->
-      move_view move (variations_view variations |> make_variations)
-  and variations_view variations =
-    List.map variation_view variations
-  and variation_view = function
+      move_view c move (variations_view c variations |> make_variations)
+  and variations_view c variations =
+    List.map (variation_view c) variations
+  and variation_view c = function
     | Zipper.Var (move, line) ->
-      (move_view move noNode::line_view line) |> make_variation
-  and line_view line =
-    List.map node_view line in
+      (move_view c move noNode::future_view (fwd_c c) line) |> make_variation
+  and future_view c l = fold_right' node_view fwd_c c l
+  and past_view c l acc = fold_left node_view back_c acc c l in
 
-  let rec tree_context_view ((context, past), future) inner =
-    inner::line_view future
-    |> List.rev_append (line_view past)
-    |> line_context_view context
 
-  and line_context_view context inner =
+  let rec tree_context_view c ((context, past), future) inner =
+    let acc, c' = inner::future_view (fwd_c c) future
+                  |> past_view (back_c c) past in
+    line_context_view c' context acc
+
+  and line_context_view c context inner =
     match context with
     | Zipper.Main_line -> inner
     | Zipper.Var_line (context, main, left, var_move, right, future) ->
-      let this_var = move_view var_move noNode::inner |> make_variation in
+      let this_var = move_view c var_move noNode::inner |> make_variation in
       let variations =
-        List.rev_append (variations_view left)
-          (this_var::variations_view right)
+        List.rev_append (variations_view c left)
+          (this_var::variations_view c right)
         |> make_variations in
-      move_view main variations
-      |> tree_context_view (context, future)
+      move_view c main variations
+      |> tree_context_view c (context, future)
   in
   let (context, past), future = model.moves in
-  line_view future
-  |> List.rev_append (line_view past)
-  |> line_context_view context
+  let c = {ply = model.ply - 1; actions = []; depth = 0} in
+  let acc, c' = future_view (fwd_c c) future
+                |> past_view c past in
+  line_context_view c' context acc
   |> make_line

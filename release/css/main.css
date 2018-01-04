@@ -211,14 +211,23 @@ span.number {
     color: #808080;
     display: none;
 }
-span.number:after {
+li.move.white > span.number:after {
   content: ".\00a0";
+}
+li.move.black > span.number:after {
+  content: "...\00a0";
 }
 li.move.numbered > span.number {
     display: inline;
 }
-li.move.ply > span.ply, li.move.variations + li.move > span.ply {
+li.move.numbered > span.number,
+ul.moves > li:first-child > span.number,
+li.move.variations + li.move > span.number {
     display: inline;
+}
+
+ol.variations {
+    list-style-type: lower-latin;
 }
 
 ul.moves {
