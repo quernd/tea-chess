@@ -162,3 +162,68 @@ let san_of_move position move =
   san_of_move' position move_list move
 
 
+let char_of_piece = function
+  | King, Black -> 'k'
+  | King, White -> 'K'
+  | Queen, Black -> 'q'
+  | Queen, White -> 'Q'
+  | Rook, Black -> 'r'
+  | Rook, White -> 'R'
+  | Bishop, Black -> 'b'
+  | Bishop, White -> 'B'
+  | Knight, Black -> 'n'
+  | Knight, White -> 'N'
+  | Pawn, Black -> 'p'
+  | Pawn, White -> 'P'
+
+let fen_of_position position =
+  let coordinates = [7; 6; 5; 4; 3; 2; 1; 0] in
+
+  let char_of_empty i = Js.log i; "0123456789".[i] in
+
+  let rank n =
+    let rec loop (acc, empty) = function
+      | [] -> acc, empty
+      | hd::tl -> 
+        begin match position.ar.(hd).(n) with
+          | Empty -> loop (acc, empty + 1) tl
+          | Piece piece -> 
+            if empty > 0
+            then loop (char_of_piece piece::char_of_empty empty::acc, 0) tl
+            else loop (char_of_piece piece::acc, 0) tl
+        end in
+    let acc, empty = loop ([], 0) coordinates in
+    Opal.implode (if empty > 0 then char_of_empty empty::acc else acc) in
+
+  let board =
+    List.map rank coordinates
+    |> String.concat "/"
+  in
+  let full_move = position.number / 2 + 1 in
+  let en_passant =
+    match position.en_passant with
+    | None -> "-"
+    | Some file -> Printf.sprintf "%c%c" (char_of_file file)
+                     (if position.turn = White then '6' else '3') in
+
+  let castling_white =
+    match position.cas_w with
+    | true, true -> "KQ"
+    | true, false -> "Q"
+    | false, true -> "K"
+    | false, false -> "" in
+  let castling_black =
+    match position.cas_b with
+    | true, true -> "kq"
+    | true, false -> "q"
+    | false, true -> "k"
+    | false, false -> "" in
+  let castling =
+    if castling_white = "" && castling_black = ""
+    then "" else castling_white ^ castling_black in
+
+  let turn = match position.turn with White -> 'w' | Black -> 'b' in
+
+  Printf.sprintf "%s %c %s %s %d %d" board turn castling en_passant position.irr_change full_move
+
+

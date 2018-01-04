@@ -8,7 +8,6 @@ type move = (Chess.move * san)
 type model =
   { moves : move Zipper.tree_zipper
   ; position : Chess.position
-  ; ply : int
   }
 
 type action = Fwd | Back | Down | Next | Prev | Up
@@ -29,7 +28,6 @@ type c =
 let init () =
   { position = Ochess.init_position
   ; moves = Zipper.tree_init ()
-  ; ply = 0
   }
 
 exception No_prev_position
@@ -39,11 +37,11 @@ let game_back model =
   | Some position ->
     begin try { moves = Zipper.tree_back model.moves
               ; position
-              ; ply = model.ply - 1}
+              }
       with Zipper.Beginning_of_list ->
         { moves = Zipper.tree_up model.moves |> snd |> Zipper.tree_back
         ; position
-        ; ply = model.ply - 1}
+        }
     end
   | _ -> raise No_prev_position
 
@@ -51,7 +49,6 @@ let game_fwd model =
   try let (move, _san), moves = Zipper.tree_fwd model.moves in
     { position = Chess.make_move model.position move
     ; moves
-    ; ply = model.ply + 1
     }
   with Zipper.End_of_list -> model
 
@@ -60,15 +57,13 @@ let game_make_move move model =
   let _, moves = Zipper.tree_fwd' (move, san) model.moves in
   { position = Chess.make_move model.position move
   ; moves
-  ; ply = model.ply + 1
   }
 
 let game_rewind_and_make_move f model =
   try let move, moves = f model.moves in
     match model.position.prev with
     | Some position ->
-      { model with 
-        position = Chess.make_move position (fst move)
+      { position = Chess.make_move position (fst move)
       ; moves
       }
     | None -> raise No_prev_position
@@ -168,7 +163,6 @@ let game_of_pgn pgn =
     | Some (_headers, line, _result) ->
       line_of_pgn Ochess.init_position line in
   { position = Ochess.init_position
-  ; ply = 0
   ; moves = (Zipper.Main_line, []), moves
   }
 
@@ -313,7 +307,7 @@ let view model =
       |> tree_context_view (up c) (context, future)
   in
   let (context, past), future = model.moves in
-  let c = {ply = model.ply - 1; actions = []} in
+  let c = {ply = model.position.number - 1; actions = []} in
   let acc, c' = future_view (fwd c) future
                 |> past_view c past in
   line_context_view c' context acc

@@ -360,7 +360,8 @@ let view model =
           List.map (map board_msg) Board.buttons_view @
           List.map (map game_msg) Game.buttons_view
           |> nav [id "buttons"]
-          (* ; Board.result_view game_status *)
+        (* ; Board.result_view game_status *)
+        ; p [style "font-size" "small"] [Chess.fen_of_position (model |. model.game).position |> text]
         ]
     ; section [id "game"]
         [ game_nav_view model
