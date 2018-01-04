@@ -11,19 +11,19 @@ type model =
   ; ply : int
   }
 
+type action = Fwd | Back | Down | Next | Prev | Up
+
 type msg =
   | Random_button
   | Back_button
   | Fwd_button
   | Make_move of Chess.move
+  | Move_clicked of action list
 [@@bs.deriving {accessors}]
-
-type action = Fwd | Back | Down | Next | Prev | Up
 
 type c =
   { ply : int
   ; actions : action list
-  ; depth : int
   }
 
 let init () =
@@ -34,7 +34,7 @@ let init () =
 
 exception No_prev_position
 
-let back model =
+let game_back model =
   match model.position.prev with
   | Some position ->
     begin try { moves = Zipper.tree_back model.moves
@@ -47,13 +47,68 @@ let back model =
     end
   | _ -> raise No_prev_position
 
-let fwd model =
+let game_fwd model =
   try let (move, _san), moves = Zipper.tree_fwd model.moves in
     { position = Chess.make_move model.position move
     ; moves
     ; ply = model.ply + 1
     }
   with Zipper.End_of_list -> model
+
+let game_make_move move model =
+  let san = Chess.san_of_move model.position move in
+  let _, moves = Zipper.tree_fwd' (move, san) model.moves in
+  { position = Chess.make_move model.position move
+  ; moves
+  ; ply = model.ply + 1
+  }
+
+let game_rewind_and_make_move f model =
+  try let move, moves = f model.moves in
+    match model.position.prev with
+    | Some position ->
+      { model with 
+        position = Chess.make_move position (fst move)
+      ; moves
+      }
+    | None -> raise No_prev_position
+  with _ -> model
+
+let game_next = game_rewind_and_make_move Zipper.tree_next
+let game_prev = game_rewind_and_make_move Zipper.tree_prev
+let game_down = game_rewind_and_make_move Zipper.tree_down
+let game_up = game_rewind_and_make_move Zipper.tree_up
+
+
+
+let fun_of_action = function
+  | Fwd -> game_fwd
+  | Back -> game_back
+  | Down -> game_down
+  | Next -> game_next
+  | Prev -> game_prev
+  | Up -> game_up
+
+let id' = fun x -> x
+
+let (<<) f g x = f (g x)
+let (>>) f g x = g (f x)
+
+let fun_of_actions actions =
+  List.fold_left (fun acc a -> acc << (fun_of_action a)) id' actions
+
+
+let string_of_action = function
+  | Fwd -> "f"
+  | Back -> "b"
+  | Down -> "v"
+  | Next -> "n"
+  | Prev -> "p"
+  | Up -> "u"
+
+let string_of_actions actions =
+  List.fold_left (fun acc a -> string_of_action a ^ acc) "" actions
+
 
 let update model = function
   | Random_button ->
@@ -68,16 +123,13 @@ let update model = function
       | _ -> Cmd.none
     end
   | Make_move move ->
-    let san = Chess.san_of_move model.position move in
-    let _, moves = Zipper.tree_fwd' (move, san) model.moves in
-    { position = Chess.make_move model.position move
-    ; moves
-    ; ply = model.ply + 1
-    }, Cmd.none
+    game_make_move move model, Cmd.none
   | Back_button ->
-    begin try back model with _ -> model end, Cmd.none
+    begin try game_back model with _ -> model end, Cmd.none
   | Fwd_button ->
-    begin try fwd model with _ -> model end, Cmd.none
+    begin try game_fwd model with _ -> model end, Cmd.none
+  | Move_clicked actions -> Js.log (string_of_actions actions);
+    model |> fun_of_actions actions, Cmd.none
 
 
 
@@ -131,8 +183,6 @@ let pgn_of_game (game:model) =
 (* TODO: add headers *)
 
 
-let id x = x
-
 (* fold_right' is like right fold, but carrying an additional 
    accumulator c that is updated by g and applied together with f *)
 let fold_right' f g =  (* c l *)
@@ -141,15 +191,14 @@ let fold_right' f g =  (* c l *)
       let c' = g c in
       loop (fun acc' -> cont (f c hd::acc')) c' tl
     | [] -> cont []
-  in loop id
+  in loop id'
 
 (* fold_left' is like left fold, but carrying an additional 
    accumulator c that is updated by g and applied together with f *)
-let fold_left f g acc c l =  
+let fold_left' f g acc c l =  
   List.fold_left
     (fun (acc, c) item -> f c item::acc, g c)
     (acc, c) l
-
 
 
 let view model =
@@ -161,24 +210,41 @@ let view model =
   let make_variation moves = li [class' "variation"] [make_line moves] in
 
 
-  let fwd_c c = {c with ply = c.ply + 1} in
-  let back_c c = {c with ply = c.ply - 1} in
+  let fwd c = {ply = c.ply + 1; actions = Fwd::c.actions} in
+  let back c = {ply = c.ply - 1; actions = Back::c.actions} in
+  let down c = {c with actions = Down::c.actions} in
+  let prev c = {c with actions = Prev::c.actions} in
+  let next c = {c with actions = Next::c.actions} in
+  let up c = {c with actions = Up::c.actions} in
 
+  let home_view c =
+    li [ classList [ "move", true
+                   ; "highlight", c.actions = []
+                   ]
+       ]
+      [ span
+          [ class' "move"
+          ; onClick (Move_clicked c.actions) ]
+          [ text {js|\u2302|js} ]
+      ] in
 
   let rec move_view c move variations =
     let number = c.ply / 2 + 1
     and w_move = c.ply mod 2 = 0 in
     li [ classList
            [ "move", true
-           ; "numbered", w_move
            ; "white", w_move
            ; "black", not w_move
            ; "variations", variations <> noNode
+           ; "highlight", c.actions = []
            ]
        ]
       [ span [class' "number"]
           [ string_of_int number |> text ]
-      ; span [class' "move"]
+      ; span
+          [ class' "move"
+          ; onClick (Move_clicked c.actions)
+          ]
           [ snd move |> text ]
       ; variations
       ]
@@ -186,34 +252,35 @@ let view model =
     | Zipper.Node (move, variations) ->
       move_view c move (variations_view c variations |> make_variations)
   and variations_view c variations =
-    List.map (variation_view c) variations
+    fold_right' variation_view next (down c) variations
   and variation_view c = function
     | Zipper.Var (move, line) ->
-      (move_view c move noNode::future_view (fwd_c c) line) |> make_variation
-  and future_view c l = fold_right' node_view fwd_c c l
-  and past_view c l acc = fold_left node_view back_c acc c l in
+      move_view c move noNode::future_view (fwd c) line |> make_variation
+  and future_view c l = fold_right' node_view fwd c l
+  and past_view c l acc = fold_left' node_view back acc c l in
 
 
   let rec tree_context_view c ((context, past), future) inner =
-    let acc, c' = inner::future_view (fwd_c c) future
-                  |> past_view (back_c c) past in
+    let acc, c' = inner::future_view (fwd c) future
+                  |> past_view (back c) past in
     line_context_view c' context acc
 
   and line_context_view c context inner =
     match context with
-    | Zipper.Main_line -> inner
+    | Zipper.Main_line -> home_view c::inner
     | Zipper.Var_line (context, main, left, var_move, right, future) ->
       let this_var = move_view c var_move noNode::inner |> make_variation in
       let variations =
-        List.rev_append (variations_view c left)
-          (this_var::variations_view c right)
+        let right' =
+          this_var::fold_right' variation_view next (next c) right in
+        fold_left' variation_view prev right' (prev c) left |> fst
         |> make_variations in
-      move_view c main variations
-      |> tree_context_view c (context, future)
+      move_view (up c) main variations
+      |> tree_context_view (up c) (context, future)
   in
   let (context, past), future = model.moves in
-  let c = {ply = model.ply - 1; actions = []; depth = 0} in
-  let acc, c' = future_view (fwd_c c) future
+  let c = {ply = model.ply - 1; actions = []} in
+  let acc, c' = future_view (fwd c) future
                 |> past_view c past in
   line_context_view c' context acc
   |> make_line

@@ -82,7 +82,7 @@ let tree_next ((context, past), future) =
   | [], Var_line (context', main, left, var, Var (next, line)::right, future') ->
     let var' = Var_line
         (context', main, Var (var, future)::left, next, right, future') in
-    next, (var', []), line
+    next, ((var', []), line)
   | _ -> raise Not_beginning_of_list
 
 let tree_prev ((context, past), future) =
@@ -92,7 +92,7 @@ let tree_prev ((context, past), future) =
   | [], Var_line (context', main, Var (prev, line)::left, var, right, future') ->
     let var' = Var_line
         (context', main, left, prev, Var (var, future)::right, future') in
-    prev, (var', []), line
+    prev, ((var', []), line)
   | _ -> raise Not_beginning_of_list
 
 let tree_up ((context, past), future) =

@@ -215,16 +215,18 @@ li.move.white > span.number:after {
   content: ".\00a0";
 }
 li.move.black > span.number:after {
-  content: "...\00a0";
+    content: "...\00a0";
 }
-li.move.numbered > span.number {
-    display: inline;
-}
-li.move.numbered > span.number,
+li.move.white > span.number,
 ul.moves > li:first-child > span.number,
 li.move.variations + li.move > span.number {
     display: inline;
 }
+
+span.comment {
+  color: #008000;
+}
+
 
 ul.moves {
     background: #fff;
