@@ -157,16 +157,15 @@ let update model = function
   | _ -> model, Cmd.none
 
 let result_view result =
-  p []
-    [ begin match result with
-        | Chess.Win White -> "White wins by checkmate!" 
-        | Chess.Win Black -> "Black wins by checkmate!"
-        | Chess.Draw -> "The game is a draw!"
-        | Chess.Play move_list ->
-          List.length move_list
-          |> Printf.sprintf "There are %d legal moves in this position!"
-      end |> text
-    ]
+  begin match result with
+    | Chess.Win White -> "White wins by checkmate!" 
+    | Chess.Win Black -> "Black wins by checkmate!"
+    | Chess.Draw -> "The game is a draw!"
+    | Chess.Play move_list ->
+      List.length move_list
+      |> Printf.sprintf "There are %d legal moves in this position!"
+  end |> text
+
 
 
 let filter_targets source moves =

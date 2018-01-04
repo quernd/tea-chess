@@ -4,6 +4,14 @@ open Tea.App
 
 open Lens.Infix
 
+
+type stockfish = <
+  postMessage : string -> unit [@bs.meth];
+> Js.t
+
+external stockfish : stockfish = "stockfish" [@@bs.val]
+
+
 module IntT = struct
   type t = int
   let compare = compare
@@ -35,6 +43,11 @@ type 'a transfer =
   | Failed
   | Received of 'a
 
+type ready =
+  | Ready
+  | Thinking
+  | Loading
+
 type model =
   { game : game_lens
   ; board : Board.model
@@ -43,6 +56,7 @@ type model =
   ; tournament : (string * string list) list transfer
   ; lichess_games : int StringMap.t
   ; route : route
+  ; stockfish : ready
   }
 and game_lens = (model, Game.model) Lens.t
 and route =
@@ -81,6 +95,8 @@ type msg =
   | Pgn_data of game_lens * (string, string Http.error) Result.t
   | Close_tab of string
   | Validate_pgn of string
+  | Stockfish_data of string
+  | Stockfish_request_move
 [@@bs.deriving {accessors}]
 
 let proxy = "http://localhost:3000/fetch/"
@@ -167,6 +183,7 @@ let init_model =
   ; local_games = IntMap.empty
   ; lichess_games = StringMap.empty
   ; route = Scratch
+  ; stockfish = Loading
   }
 
 let init () location =
@@ -176,7 +193,7 @@ let init () location =
 
 
 let update model = function
-  | Board_msg (Move move) -> Js.log (model |. model.game |> Game.pgn_of_game) ;
+  | Board_msg (Move move) -> 
     let game, cmd = Game.update (model |. model.game) (Game.Make_move move) in
     model |> model.game ^= game, Cmd.map game_msg cmd
   | Board_msg msg ->
@@ -265,8 +282,27 @@ let update model = function
       with _e -> model, Cmd.none end
   | Location_change location ->
     route_of_location location |> update_route model
+  | Stockfish_data s ->
+    begin try match Stockfish.parse s with
+      | Stockfish.Ready -> {model with stockfish = Ready}, Cmd.none
+      | Stockfish.Irrelevant -> model, Cmd.none
+      | Stockfish.Move move ->
+        let move' = Pgn.move_of_pgn_move
+            ((model |. model.game).position) move.move in
+        let game, cmd = Game.update (model |. model.game) (Game.Make_move move') in
+        {model with stockfish = Ready} |> model.game ^= game, Cmd.map game_msg cmd
+      with Chess.Illegal_move -> model, Cmd.none
+    end
+  | Stockfish_request_move ->
+    begin match model.stockfish with
+      | Ready ->
+        stockfish##postMessage
+          ("position fen " ^
+           Chess.fen_of_position (model |. model.game).position) ;
+        stockfish##postMessage "go depth 12" ;
+        {model with stockfish = Thinking}, Cmd.none
+      | _ -> model, Cmd.none end
   | _ -> model, Cmd.none
-
 
 
 let header_nav_view =
@@ -346,8 +382,9 @@ let scratch_view =
 let view model =
   let game = model |. model.game in
   let game_view = Game.view game |> map game_msg in
+  let game_status = Chess.game_status game.position in
   let interactable =
-    match Chess.game_status game.position with
+    match game_status with
     | Play move_list ->
       Board.Interactable (game.position.turn, move_list)
     | _ -> Board.Not_interactable in
@@ -356,12 +393,23 @@ let view model =
         [ header_nav_view
         ; Board.view interactable game.position.ar model.board
           |> map board_msg
-          ;
-          List.map (map board_msg) Board.buttons_view @
+        ; List.map (map board_msg) Board.buttons_view @
           List.map (map game_msg) Game.buttons_view
           |> nav [id "buttons"]
         (* ; Board.result_view game_status *)
         ; p [style "font-size" "small"] [Chess.fen_of_position (model |. model.game).position |> text]
+        ; p []
+            [ begin match model.stockfish with
+                | Ready ->
+                  begin match interactable with
+                    | Board.Not_interactable -> Board.result_view game_status
+                    | _ -> button [onClick Stockfish_request_move]
+                             [text "computer move"]
+                  end
+                | Loading -> text "loading Stockfish"
+                | Thinking -> text "Stockfish is thinking"
+              end
+            ]
         ]
     ; section [id "game"]
         [ game_nav_view model
@@ -378,6 +426,7 @@ let view model =
 let subscriptions model =
   Sub.batch [ Board.subscriptions model.board |> Sub.map board_msg
             ; Keyboard.downs key_pressed
+            ; Stockfish.stockfish stockfish_data
             ]
 
 

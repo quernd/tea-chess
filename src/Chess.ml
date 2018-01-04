@@ -179,7 +179,7 @@ let char_of_piece = function
 let fen_of_position position =
   let coordinates = [7; 6; 5; 4; 3; 2; 1; 0] in
 
-  let char_of_empty i = Js.log i; "0123456789".[i] in
+  let char_of_empty i = "0123456789".[i] in
 
   let rank n =
     let rec loop (acc, empty) = function
