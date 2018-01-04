@@ -140,6 +140,39 @@ let buttons_view =
   ]
 
 
+let game_of_pgn pgn =
+  let rec line_of_pgn position = function
+    | [] -> []
+    | hd::tl ->
+      let node, position' = node_of_pgn position hd in
+      node::line_of_pgn position' tl
+  and variation_of_pgn position = function
+    | hd::tl ->
+      let move, position' = move_of_pgn position hd in
+      Zipper.Var (move, line_of_pgn position' tl)
+    | _ -> raise Pgn.Parse_error
+  and move_of_pgn position (pgn_move:Pgn.pgn_move) =
+    let move = Pgn.move_of_pgn_move position pgn_move.move in
+    let san = Chess.san_of_move position move in
+    (move, san), Chess.make_move position move
+  and node_of_pgn position (pgn_move:Pgn.pgn_move) =
+    let rav = List.map (variation_of_pgn position) pgn_move.rav in
+    let move, position' = move_of_pgn position pgn_move in
+    Zipper.Node (move, rav), position'
+
+  in
+
+  let moves =
+    match Pgn.parse_pgn pgn with
+    | None -> raise Pgn.Parse_error
+    | Some (_headers, line, _result) ->
+      line_of_pgn Ochess.init_position line in
+  { position = Ochess.init_position
+  ; ply = 0
+  ; moves = (Zipper.Main_line, []), moves
+  }
+
+
 let pgn_of_game (game:model) =
 
   let line moves = String.concat " " moves in
@@ -180,6 +213,7 @@ let pgn_of_game (game:model) =
   |> List.rev_append (pgn_of_line past)
   |> pgn_of_line_context context
   |> line
+  |> Printf.sprintf "%s *"
 (* TODO: add headers *)
 
 

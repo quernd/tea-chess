@@ -227,7 +227,7 @@ let update model = function
             (fun acc v ->
                IntMap.add
                  (int_of_string v)
-                 (List.assoc v list |> Pgn.game_of_string)
+                 (List.assoc v list |> Game.game_of_pgn)
                  acc
             ) IntMap.empty games in
         let game =
@@ -260,7 +260,7 @@ let update model = function
     }, Cmd.none
   | Pgn_data (lens, (Ok data)) ->
     begin try
-        let game = Pgn.game_of_string data in
+        let game = Game.game_of_pgn data in
         model |> lens ^= game, Cmd.none
       with _e -> model, Cmd.none end
   | Location_change location ->

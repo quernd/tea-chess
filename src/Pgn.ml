@@ -150,8 +150,8 @@ let pgn_comment =
 let pgn_number =
   many1 digit << (token ". ..." <|> token "..." <|> token ".")
 
-let rec pgn_rav () =
-  (exactly '(') >>
+let rec pgn_var () =
+  exactly '(' >>
   lexeme (pgn_line ()) <<
   lexeme (exactly ')')
 
@@ -162,7 +162,7 @@ and pgn_move () =
   maybe (lexeme pgn_number) >> lexeme pgn_san >>= fun move ->
   many (lexeme pgn_nag) >>= fun nags ->
   many (lexeme pgn_comment) >>= fun post_comment ->
-  many (lexeme (pgn_rav ())) >>= fun rav ->
+  many (lexeme (pgn_var ())) >>= fun rav ->
   return {pre_comment; move; nags; rav; post_comment}
 
 and pgn_line () =
@@ -218,24 +218,5 @@ let move_of_pgn_move position move =
   | _ -> raise Ambiguous_move
 
 
-let game_of_string string =
-
-  let advance (game:Game.model) (move:pgn_move) : Game.model =
-    let move' = move_of_pgn_move game.position move.move in
-    let position = Chess.make_move game.position move' in
-    let san = Chess.san_of_move game.position move' in
-    let _, moves = Zipper.tree_fwd' (move', san) game.moves in
-    {position; ply = game.ply + 1; moves}
-  in
-
-  let pgn = LazyStream.of_string string |> parse pgn_game in
-  match pgn with
-  | Some (_, pgn', _) ->
-    List.fold_left advance (Game.init ()) pgn'
-  | None -> Js.log string; raise Parse_error
-
-let string_of_game (game:Game.model) =
-  let (_context, past), future = game.moves in
-  let moves = List.rev_append past future in
-  let sans = List.map (fun (Zipper.Node ((_, san), _)) -> san) moves in
-  String.concat " " sans ^ " *"
+let parse_pgn s =
+  LazyStream.of_string s |> parse pgn_game
