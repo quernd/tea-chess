@@ -18,7 +18,6 @@
       stockfish.onmessage = function(s) {
         document.dispatchEvent(new CustomEvent("stockfish", {detail: s}));
       }
-      document.addEventListener("stockfish", function(e) {console.log(e.detail)});
     </script>
     <script src="main.js"></script>
     <script>

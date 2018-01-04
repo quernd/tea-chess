@@ -11,7 +11,6 @@ type t = <
 
 external stockfish : t = "stockfish" [@@bs.val]
 
-let () = stockfish##postMessage "go depth 20"
 
 module IntT = struct
   type t = int
@@ -90,6 +89,8 @@ type msg =
   | Pgn_data of game_lens * (string, string Http.error) Result.t
   | Close_tab of string
   | Validate_pgn of string
+  | Stockfish_data of string
+  | Stockfish_request_move
 [@@bs.deriving {accessors}]
 
 let proxy = "http://localhost:3000/fetch/"
@@ -274,8 +275,20 @@ let update model = function
       with _e -> model, Cmd.none end
   | Location_change location ->
     route_of_location location |> update_route model
+  | Stockfish_data s -> Js.log s;
+    begin try match Stockfish.parse s with
+      | None -> model, Cmd.none
+      | Some move ->
+        let move' = Pgn.move_of_pgn_move
+            ((model |. model.game).position) move in
+        let game, cmd = Game.update (model |. model.game) (Game.Make_move move') in
+        model |> model.game ^= game, Cmd.map game_msg cmd
+      with Chess.Illegal_move -> Js.log "error"; model, Cmd.none
+    end
+  | Stockfish_request_move ->
+    stockfish##postMessage "go depth 12" ;
+    model, Cmd.none
   | _ -> model, Cmd.none
-
 
 
 let header_nav_view =
@@ -366,7 +379,8 @@ let view model =
         ; Board.view interactable game.position.ar model.board
           |> map board_msg
           ;
-          List.map (map board_msg) Board.buttons_view @
+          button [onClick Stockfish_request_move] [text "computer move"]
+          ::List.map (map board_msg) Board.buttons_view @
           List.map (map game_msg) Game.buttons_view
           |> nav [id "buttons"]
           (* ; Board.result_view game_status *)
@@ -386,6 +400,7 @@ let view model =
 let subscriptions model =
   Sub.batch [ Board.subscriptions model.board |> Sub.map board_msg
             ; Keyboard.downs key_pressed
+            ; Stockfish.stockfish stockfish_data
             ]
 
 
