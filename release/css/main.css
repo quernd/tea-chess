@@ -226,18 +226,54 @@ li.move.variations + li.move > span.number {
     display: inline;
 }
 
+ul.moves {
+    background: #fff;
+}
 ol.variations {
+    list-style-type: upper-latin;
+    padding-left: 20px;
+}
+ol.variations ul.moves {
+    background: #d3d3d3;
+}
+ol.variations ol.variations {
+    list-style-type: upper-roman;
+    font-size: small;
+}
+ol.variations ol.variations ul.moves {
+    background: #fff;
+}
+ol.variations ol.variations ol.variations {
     list-style-type: lower-latin;
+}
+ol.variations ol.variations ol.variations ul.moves {
+    background: #d3d3d3;
+}
+ol.variations ol.variations ol.variations ol.variations {
+    list-style-type: lower-roman;
+    font-size: x-small;
+}
+ol.variations ol.variations ol.variations ol.variations ul.moves {
+    background: #fff;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations {
+    list-style-type: lower-greek;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations ul.moves {
+    background: #d3d3d3;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations ol.variations {
+    list-style-type: circle;
+    font-size: xx-small;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations ol.variations ul.moves {
+    background: #fff;
 }
 
 ul.moves {
     margin: .25em;
     padding: .25em;
     list-style-type: none;
-    background: #fff;
-}
-ul.moves.even {
-    background: #d3d3d3;
 }
 
 table tr:nth-of-type(even) {
@@ -286,6 +322,7 @@ html, body {
     margin-top: 0px;
     margin-bottom: 0px;
     font-family: sans-serif;
+    font-size: 100%;
 }
 
 main {
