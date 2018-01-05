@@ -221,8 +221,8 @@ let make_move pos m del =
               | Black -> {tmp with cas_b = (false, false); king_b = (x2,y2)})
           | Rook -> (match (pos.turn, x1, y1) with
               | (White, 0, 0) -> {tmp with cas_w = no_q_castle(pos.cas_w)}
-              | (White, 7, 0) -> {tmp with cas_w = no_k_castle(pos.cas_b)}
-              | (Black, 0, 7) -> {tmp with cas_b = no_q_castle(pos.cas_w)}
+              | (White, 7, 0) -> {tmp with cas_w = no_k_castle(pos.cas_w)}
+              | (Black, 0, 7) -> {tmp with cas_b = no_q_castle(pos.cas_b)}
               | (Black, 7, 7) -> {tmp with cas_b = no_k_castle(pos.cas_b)}
               | _ -> tmp)
           | Pawn ->
