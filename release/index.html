@@ -14,15 +14,20 @@
 
   <body>
     <script>
-      stockfish = new Worker('js/stockfish.js');
-      stockfish.onmessage = function(s) {
-        document.dispatchEvent(new CustomEvent("stockfish", {detail: s}));
-      }
+
     </script>
     <script src="main.js"></script>
     <script>
       setTimeout(function() {
-        var app = starter.main(document.body);
+var app = starter.main(document.body);
+      stockfish = new Worker('js/stockfish.js');
+      stockfish.onmessage = function(s) {
+      app.pushMsg(starter.stockfish_data(s.data)); };
+      /* function(s) {
+        document.dispatchEvent(new CustomEvent("stockfish", {detail:
+s}));
+      
+      } */
       }, 1)
     </script>
   </body>
