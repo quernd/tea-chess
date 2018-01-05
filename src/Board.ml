@@ -48,6 +48,8 @@ type internal_msg =
   | Move_drop of Mouse.position
   | Promotion_canceled
   | Piece_promoted of piece_type
+  | Square_entered of file * rank
+  | Square_left of file * rank
 [@@bs.deriving {accessors}]
 
 type msg =
@@ -90,24 +92,6 @@ let handler decoder msg event =
   | Error _ -> None 
 
 
-let target orientation drag =
-  let x' = drag.coordinates.x - drag.initial.x + drag.offset.x 
-  and y' = drag.coordinates.y - drag.initial.y + drag.offset.y in
-  let x = if x' < 0 then x' - drag.size else x' 
-  and y = if y' < 0 then y' - drag.size else y' in
-  let i, ii = drag.source in 
-  let i', ii' = match orientation with
-    | White -> i + (x / drag.size), ii - (y / drag.size)
-    | Black -> i - (x / drag.size), ii + (y / drag.size) in
-  if i' >= 0 && i' <= 7 && ii' >= 0 && ii' <= 7
-  then Some (i', ii')
-  else None
-
-let adjust_coordinates orientation coordinates drag =
-  { drag with 
-    coordinates
-  ; target = target orientation drag }
-
 
 let update model = function
   | Internal_msg msg ->
@@ -123,9 +107,15 @@ let update model = function
         }, Cmd.none
       | Move_drag coordinates, Dragging drag ->
         { model with
-          status =
-            adjust_coordinates model.orientation coordinates drag
-            |> dragging
+          status = Dragging {drag with coordinates}
+        }, Cmd.none
+      | Square_entered (file, rank), Dragging drag ->
+        { model with
+          status = Dragging {drag with target = Some (file, rank)}
+        }, Cmd.none
+      | Square_left _, Dragging drag ->
+        { model with
+          status = Dragging {drag with target = None}
         }, Cmd.none
       | Move_drop _, Dragging drag ->
         begin match drag.target with
@@ -236,51 +226,55 @@ let board_view interactable pos_ar model =
         | _ -> false
       and legal_highlight drag target = List.exists
           (fun (square, _) -> square = target) drag.legal_targets in
+      let piece_view, listener =
+        match pos_ar.(file).(rank) with
+        | Chess.Piece (piece_type, color) ->
+          let listener' =
+            begin match move_start with
+              | Some (f, turn) when color = turn -> 
+                onCB "mousedown" ""
+                  (handler offset_page_size (f file rank))
+              | _ -> noProp end in
+          let drag_origin, styles = begin match model.status with
+            | Dragging drag when (file, rank) = drag.source ->
+              true, styles [ "transform",
+                             Printf.sprintf "translate(%dpx,%dpx)" 
+                               (drag.offset.x - (drag.size / 2) 
+                                + drag.coordinates.x - drag.initial.x)
+                               (drag.offset.y - (drag.size / 2) 
+                                + drag.coordinates.y - drag.initial.y) ]        
+            | _ -> false, noProp end in
+          node "cb-piece"
+            [ styles
+            ; classList
+                [ Chess.string_of_color color, true
+                ; Chess.string_of_piece_type piece_type, true
+                ; "dragged", drag_origin
+                ]
+            ] [], listener'
+        | Chess.Empty -> noNode, noProp in
 
       node "cb-square"
-        [ match model.status with
-          | Dragging drag ->
-            classList
-              [ "destination", legal_highlight drag (file, rank)
-              ; "hovering", target_highlight drag (file, rank)
-              ]
-          | _ -> noProp
-        ]
-        [ match pos_ar.(file).(rank) with
-          | Chess.Piece (piece_type, color) ->
-            let listener =
-              begin match move_start with
-                | Some (f, turn) when color = turn -> 
-                  onCB "mousedown" ""
-                    (handler offset_page_size (f file rank))
-                | _ -> noProp end
-            and styles =
-              begin match model.status with 
-                | Dragging drag when (file, rank) = drag.source ->
-                  styles [ "z-index", "9"
-                         ; "transform",
-                           Printf.sprintf "translate(%dpx,%dpx)" 
-                             (drag.offset.x - (drag.size / 2) 
-                              + drag.coordinates.x - drag.initial.x)
-                             (drag.offset.y - (drag.size / 2) 
-                              + drag.coordinates.y - drag.initial.y) ]
-                | _ -> noProp end
-            in
-            node "cb-piece"
-              [ listener
-              ; styles
-              ; classList
-                  [ Chess.string_of_color color, true
-                  ; Chess.string_of_piece_type piece_type, true
-                  ]
-              ] []
-          | Chess.Empty -> noNode
-        ] in
+        (listener::
+         match model.status with
+         | Dragging drag ->
+           [ classList
+               [ "destination", legal_highlight drag (file, rank)
+               ; "hovering", target_highlight drag (file, rank)
+               ]
+           ; onMouseEnter (Internal_msg (Square_entered (file, rank)))
+           ; onMouseLeave (Internal_msg (Square_left (file, rank)))
+           ]
+         | _ -> [noProp; noProp; noProp])
+        [piece_view] in
     List.map (square_view rank) files
     |> node "cb-row" [] in
 
   List.map rank_view ranks
-  |> node "cb-board" []
+  |> node "cb-board"
+    [ match model.status with
+      | Dragging _ -> style "cursor" "pointer"
+      | _ -> noProp ]
 
 
 let view interactable pos_ar model =

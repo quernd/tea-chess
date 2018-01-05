@@ -36,6 +36,14 @@ cb-square {
     height: 60px;
 }
 
+cb-board.dragging {
+    cursor: pointer;
+}
+
+cb-square:not(:empty) {
+    cursor: pointer;
+}
+
 cb-square.destination {
     background-image: radial-gradient(rgba(20,85,30,0.3) 22%, #208530 0, rgba(0,0,0,0.3) 0, rgba(0,0,0,0) 0);
 }
@@ -44,7 +52,6 @@ cb-square.destination:not(:empty) {
 }
 cb-square.destination.hovering {
     background-image: linear-gradient(rgba(20,85,30,0.3), rgba(20,85,30,0.3));
-    cursor: pointer;
 }
 
 cb-piece.ghost {
@@ -60,6 +67,11 @@ cb-piece {
     background-size: cover;
     cursor: pointer;
     z-index: 1;
+    pointer-events: none;
+}
+
+cb-piece.dragged {
+    z-index: 9;
 }
 
 cb-piece.white.king {
