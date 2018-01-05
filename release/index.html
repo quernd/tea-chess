@@ -18,16 +18,15 @@
     </script>
     <script src="main.js"></script>
     <script>
-      setTimeout(function() {
-var app = starter.main(document.body);
-      stockfish = new Worker('js/stockfish.js');
-      stockfish.onmessage = function(s) {
-      app.pushMsg(starter.stockfish_data(s.data)); };
-      /* function(s) {
-        document.dispatchEvent(new CustomEvent("stockfish", {detail:
-s}));
-      
-      } */
+stockfish_loader = function (handler) {
+        stockfish = new Worker('js/stockfish.js');
+        stockfish.onmessage = function(msg) {
+app.pushMsg(handler(msg.data));
+};
+return stockfish;
+};
+setTimeout(function() {
+        app = starter.main(document.body);
       }, 1)
     </script>
   </body>

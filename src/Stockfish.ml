@@ -1,47 +1,105 @@
-type stockfish_event = string
+open Tea
+
+type stockfish = <
+  postMessage : string -> unit [@bs.meth];
+> Js.t
+
+
+type status =
+  | Idle
+  | Thinking
+  | Loading
 
 type msg =
-  | Irrelevant
-  | Ready
+  | Data of string
   | Move of Pgn.pgn_move
+  | Ready
+  | Make_move of string
+  | Set_depth of string
+  | Autoplay of bool
+[@@bs.deriving {accessors}]
 
-let stockfish_event =
-  let open Tea.Json.Decoder in
-  (field "detail" (field "data" string))
+type parse =
+  | Parsed_move of Pgn.pgn_move
+  | Parsed_ready
 
-let registerGlobal name key tagger =
-  let open Vdom in
-  let enableCall callbacks_base =
-    let callbacks = ref callbacks_base in
-    let fn = fun ev -> 
-      let open Tea_json.Decoder in
-      let open Tea_result in
-      match decodeEvent stockfish_event ev with
-      | Error _ -> None
-      | Ok pos -> Some (tagger pos) in
-    let handler = EventHandlerCallback (key, fn) in
-    let elem = Web_node.document_node in
-    let cache = eventHandler_Register callbacks elem name handler in
-    fun () ->
-      let _ = eventHandler_Unregister elem name cache in
-      ()
-  in Tea_sub.registration key enableCall
+type model =
+  { status : status
+  ; stockfish : stockfish
+  ; depth : int
+  ; autoplay : bool
+  }
 
-let stockfish ?(key="") tagger =
-  registerGlobal "stockfish" key tagger
+let init stockfish =
+  { status = Loading
+  ; stockfish = stockfish
+  ; depth = 12
+  ; autoplay = true
+  }
 
-let parse s =
-  let open Opal in
-  let parser =
-    (token "Stockfish" >> return Ready)
-    <|>
-    (token "bestmove" >>
-     lexeme (many1 alpha_num) >> 
-     token "bestmoveSan" >>
-     Pgn.pgn_move () >>= fun move ->
-     exactly ' ' >>
-     return (Move move)) in
-  let move = LazyStream.of_string s |> parse parser in
-  match move with
-  | Some msg -> msg
-  | None -> Irrelevant
+let update model = function
+  | Autoplay autoplay -> {model with autoplay}, Cmd.none
+  | Set_depth depth ->
+    begin try {model with depth = int_of_string depth}, Cmd.none
+      with _ -> model, Cmd.none end
+  | Data data ->
+    let open Opal in
+    let parser =
+      (token "Stockfish" >> return Parsed_ready)
+      <|>
+      (token "bestmove" >>
+       lexeme (many1 alpha_num) >> 
+       token "bestmoveSan" >>
+       Pgn.pgn_move () >>= fun move ->
+       exactly ' ' >>
+       return (Parsed_move move)) in
+    let move = LazyStream.of_string data |> parse parser in
+    begin match move with
+      | Some Parsed_ready -> {model with status = Idle}, Cmd.msg Ready
+      | Some (Parsed_move move) -> {model with status = Idle}, Cmd.msg (Move move)
+      | None -> model, Cmd.none
+    end
+  | Make_move position ->
+    model.stockfish##postMessage ("position fen " ^ position) ;
+    model.stockfish##postMessage (Printf.sprintf "go depth %d" model.depth) ;
+    {model with status = Thinking}, Cmd.none
+  | Move _ -> model, Cmd.none
+  | Ready -> model, Cmd.none
+
+
+
+
+let view model =
+  let open Html in
+  form []
+    [ node "fieldset" []
+        [ node "legend" [] [text "Stockfish"]
+        ; p []
+            [ label [for' "strength"]
+                [text "strength"
+                ; input'
+                    [ type' "range"
+                    ; string_of_int model.depth |> value
+                    ; Attributes.min "1"
+                    ; Attributes.max "24"
+                    ; Attributes.step "1"
+                    ; onInput set_depth
+                    ; id "strength"
+                    ]
+                    []
+                ]
+            ]
+        ; p []
+            [ label [for' "autoplay"]
+                [text "autoplay"
+                ; input'
+                    [ type' "checkbox"
+                    ; onCheck autoplay
+                    ; id "autoplay"
+                    ]
+                    []
+                ]
+            ]
+        ]
+    ]
+

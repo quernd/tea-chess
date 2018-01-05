@@ -6,14 +6,6 @@ open Lens.Infix
 
 open Storage
 
-type stockfish = <
-  postMessage : string -> unit [@bs.meth];
-> Js.t
-
-external stockfish : stockfish = "stockfish" [@@bs.val]
-
-
-
 
 type 'a transfer =
   | Idle
@@ -21,10 +13,6 @@ type 'a transfer =
   | Failed
   | Received of 'a
 
-type ready =
-  | Ready
-  | Thinking
-  | Loading
 
 type model =
   { game : game_lens
@@ -34,7 +22,7 @@ type model =
   ; tournament : (string * string list) list transfer
   ; lichess_games : int StringMap.t
   ; route : route
-  ; stockfish : ready
+  ; stockfish : Stockfish.model option
   }
 and game_lens = (model, Game.model) Lens.t
 and route =
@@ -73,16 +61,23 @@ type msg =
   | Pgn_requested of string
   | Pgn_data of game_lens * (string, string Http.error) Result.t
   | Close_tab of string
-  | Validate_pgn of string
-  | Stockfish_data of string
+  | Load_stockfish
+  | Stockfish_msg of Stockfish.msg
   | Stockfish_request_move
 [@@bs.deriving {accessors}]
+
+external stockfish_loader : (string -> msg) -> Stockfish.stockfish Js.nullable = "stockfish_loader" [@@bs.val]
+
+let stockfish_move position =
+  position
+  |> Stockfish.make_move
+  |> stockfish_msg
 
 let proxy = "http://localhost:3000/fetch/"
 
 let route_of_location location =
   let open Web.Location in
-  let route = Chess.split_on_char '/' location.hash in
+  let route = Js.String.split "/" location.hash |> Array.to_list in
   match route with
   | ["#"; ""] -> Scratch
   | ["#"; "tournament"] -> Tournament
@@ -144,7 +139,7 @@ let init_model =
   ; local_games = IntMap.empty
   ; lichess_games = StringMap.empty
   ; route = Scratch
-  ; stockfish = Loading
+  ; stockfish = None
   }
 
 
@@ -158,9 +153,17 @@ let init () location =
 
 
 let update model = function
-  | Board_msg (Move move) -> 
+  | Board_msg (Move move) ->
     let game, cmd = Game.update (model |. model.game) (Game.Make_move move) in
-    model |> model.game ^= game, Cmd.map game_msg cmd
+    let autoplay_cmd = match model.stockfish with
+      | None -> Cmd.none
+      | Some stockfish ->
+        if stockfish.autoplay then
+          game.position
+          |> Chess.fen_of_position
+          |> stockfish_move |> Cmd.msg
+        else Cmd.none in
+    model |> model.game ^= game, Cmd.batch [Cmd.map game_msg cmd; autoplay_cmd]
   | Board_msg msg ->
     let board, cmd = Board.update model.board msg in
     {model with board}, Cmd.map board_msg cmd
@@ -231,26 +234,31 @@ let update model = function
       with _e -> model, Cmd.none end
   | Location_change location ->
     route_of_location location |> update_route model
-  | Stockfish_data s ->
-    begin try match Stockfish.parse s with
-      | Stockfish.Ready -> {model with stockfish = Ready}, Cmd.none
-      | Stockfish.Irrelevant -> model, Cmd.none
-      | Stockfish.Move move ->
+  | Load_stockfish ->
+    let f = (fun string -> Stockfish.data string |> stockfish_msg) in
+    begin match stockfish_loader f |> Js.Nullable.to_opt
+      with
+      | None -> Js.log "Stockfish failed to load"; model, Cmd.none
+      | Some stockfish ->
+        {model with stockfish = Some (Stockfish.init stockfish)}, Cmd.none
+    end
+  | Stockfish_msg (Move move) ->
+    begin try
         let move' = Pgn.move_of_pgn_move
             ((model |. model.game).position) move.move in
-        let game, cmd = Game.update (model |. model.game) (Game.Make_move move') in
-        {model with stockfish = Ready} |> model.game ^= game, Cmd.map game_msg cmd
+        let game, cmd =
+          Game.update (model |. model.game) (Game.Make_move move') in
+        model |> model.game ^= game, Cmd.map game_msg cmd
       with Chess.Illegal_move -> model, Cmd.none
+      (* Stockfish rarely makes illegal moves, but just in case ;-) *)
     end
-  | Stockfish_request_move ->
+  | Stockfish_msg msg ->
     begin match model.stockfish with
-      | Ready ->
-        stockfish##postMessage
-          ("position fen " ^
-           Chess.fen_of_position (model |. model.game).position) ;
-        stockfish##postMessage "go depth 12" ;
-        {model with stockfish = Thinking}, Cmd.none
-      | _ -> model, Cmd.none end
+      | None -> model, Cmd.none
+      | Some stockfish' ->
+        let stockfish, cmd = Stockfish.update stockfish' msg in
+        {model with stockfish = Some stockfish}, Cmd.map stockfish_msg cmd
+    end
   | _ -> model, Cmd.none
 
 
@@ -347,20 +355,30 @@ let view model =
           List.map (map game_msg) Game.buttons_view
           |> nav [id "buttons"]
         (* ; Board.result_view game_status *)
-        ; p [style "font-size" "small"] [Chess.fen_of_position (model |. model.game).position |> text]
+        (* ; p [style "font-size" "small"] [Chess.fen_of_position (model |. model.game).position |> text] *)
         ; p []
-            [ begin match model.stockfish with
-                | Ready ->
-                  begin match interactable with
-                    | Board.Not_interactable -> Board.result_view game_status
-                    | _ -> button [onClick Stockfish_request_move]
-                             [text "computer move"]
-                  end
-                | Loading -> text "loading Stockfish"
-                | Thinking -> text "Stockfish is thinking"
-              end
-            ]
+            begin match model.stockfish with
+              | None -> [ button [onClick Load_stockfish]
+                            ["load Stockfish" |> text] ]
+              | Some stockfish ->
+                [ Stockfish.view stockfish
+                  |> map stockfish_msg
+                ; begin match stockfish.status with
+                  | Idle ->
+                    begin match interactable with
+                      | Board.Not_interactable -> Board.result_view game_status
+                      | _ -> button
+                               [game.position |> Chess.fen_of_position
+                                |> stockfish_move |> onClick]
+                               [text "move, computer!"]
+                    end
+                  | Loading -> text "loading Stockfish"
+                  | Thinking -> text "Stockfish is thinking"
+                end
+                ]
+            end
         ]
+
     ; section [id "game"]
         [ game_nav_view model
         ; section [class' "scroll"]
@@ -376,7 +394,6 @@ let view model =
 let subscriptions model =
   Sub.batch [ Board.subscriptions model.board |> Sub.map board_msg
             ; Keyboard.downs key_pressed
-            ; Stockfish.stockfish stockfish_data
             ]
 
 
