@@ -123,7 +123,7 @@ let update model = function
     begin try game_back model with _ -> model end, Cmd.none
   | Fwd_button ->
     begin try game_fwd model with _ -> model end, Cmd.none
-  | Move_clicked actions -> Js.log (string_of_actions actions);
+  | Move_clicked actions ->
     model |> fun_of_actions actions, Cmd.none
 
 

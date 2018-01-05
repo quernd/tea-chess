@@ -4,6 +4,7 @@ open Tea.App
 
 open Lens.Infix
 
+open Storage
 
 type stockfish = <
   postMessage : string -> unit [@bs.meth];
@@ -12,30 +13,7 @@ type stockfish = <
 external stockfish : stockfish = "stockfish" [@@bs.val]
 
 
-module IntT = struct
-  type t = int
-  let compare = compare
-end
 
-module StringT = struct
-  type t = string
-  let compare = compare
-end
-
-module IntMap = Map.Make(IntT)
-module StringMap = Map.Make(StringT)
-
-module MapLens(Key : Map.OrderedType) = struct
-  let for_key key =
-    let module M = Map.Make(Key) in
-    let open Lens in
-    { get = M.find key
-    ; set = M.add key
-    }
-end
-
-module IntMapLens = MapLens(IntT)
-module StringMapLens = MapLens(StringT)
 
 type 'a transfer =
   | Idle
@@ -65,7 +43,6 @@ and route =
   | Scratch
   | Tournament
 
-
 let local_lens = let open Lens in
   { get = (fun x -> x.local_games)
   ; set = (fun v x -> { x with local_games = v })
@@ -85,9 +62,11 @@ type msg =
   | Game_msg of Game.msg
   | Key_pressed of Keyboard.key_event
   | New_tab
+  | Reset_game
   | Save_games
   | Clear_games
-  | Games_loaded of (string * string) list
+  | Games_loaded of ((Game.model option * Game.model IntMap.t), string) Result.t
+  | Games_saved of (unit list, string) Result.t
   | Load_tournament
   | Tournament_data of (string, string Http.error) Result.t
   | Location_change of Web.Location.location  
@@ -123,17 +102,18 @@ let update_route model route =
     match route with
     | Local id when IntMap.mem id model.local_games ->
       let game = local_lens |-- IntMapLens.for_key id in
-      {model with route; game},
-      location_of_route route |> Navigation.modifyUrl
-    | Local _ -> {model with route = Scratch},
-                 location_of_route Scratch |> Navigation.modifyUrl
+      {model with route; game}, Cmd.none
+    | Local _ -> {model with route = Scratch}, Cmd.none
+    | Tournament ->
+      let url = "https://lichess.org/api/tournament/GToVqkC9" in
+      {model with route = Tournament; tournament = Loading},
+      Http.getString url |> Http.send tournament_data
     | Lichess game_id ->
       begin try
           let id = StringMap.find game_id model.lichess_games in
           let game = local_lens |-- IntMapLens.for_key id in
           let route = Local id in
-          {model with route; game},
-          location_of_route route |> Navigation.modifyUrl
+          {model with route; game}, Cmd.none
         with Not_found ->
           let key = begin try (IntMap.max_binding model.local_games |> fst) + 1
             with Not_found -> 1 end in
@@ -154,25 +134,6 @@ let update_route model route =
     | _ -> {model with route = Scratch; game = scratch_lens}, Cmd.none
 
 
-let load_games =
-  Ex.LocalStorage.length
-  |> Tea_task.andThen (fun length ->
-      let rec loop i acc =
-        if i >= 0 then
-          loop (i - 1) (Ex.LocalStorage.key i::acc)
-        else acc in
-      loop length [] |> Tea_task.sequence
-    )
-  |> Tea_task.andThen (fun keys ->
-      List.map
-        (fun key ->
-           (Ex.LocalStorage.getItem key
-            |> Tea_task.map (fun value -> (key, value))
-           )
-        ) keys
-      |> Tea_task.sequence)
-  |> Tea_task.attemptOpt (function | Ok games -> Some (Games_loaded games)
-                                   | Error _ -> None)
 
 
 let init_model =
@@ -185,6 +146,10 @@ let init_model =
   ; route = Scratch
   ; stockfish = Loading
   }
+
+
+
+let load_games = Tea_task.attempt games_loaded Storage.load_games
 
 let init () location =
   let model, cmd =
@@ -216,50 +181,34 @@ let update model = function
   | New_tab ->
     let key = try (IntMap.max_binding model.local_games |> fst) + 1
       with Not_found -> 1 in
-    update_route
-      { model with
-        local_games = IntMap.add key (Game.init ()) model.local_games
-      ; scratch_game = Game.init ()
-      } (Local key)
+    { model with
+      local_games = IntMap.add key (Game.init ()) model.local_games
+    ; scratch_game = Game.init ()
+    }, location_of_route (Local key) |> Navigation.modifyUrl
+  | Reset_game ->
+    model |> model.game ^= Game.init (), Cmd.none
   | Save_games ->
-    let keys, cmds =
-      IntMap.fold
-        (fun key game (acc_keys, acc_pgn) ->
-           let key' = string_of_int key in
-           let pgn = Game.pgn_of_game game in
-           (key'::acc_keys),
-           (Ex.LocalStorage.setItemCmd key' pgn::acc_pgn))
-        model.local_games
-        ([], []) in
-    let games = String.concat " " keys in
-    let cmd = Ex.LocalStorage.setItemCmd "games" games in
-    model, cmd::cmds |> Cmd.batch
-  | Games_loaded list ->
-    begin try
-        let games =
-          List.assoc "games" list
-          |> Js.String.split " " |> Array.to_list in
-        let local_games =
-          List.fold_left
-            (fun acc v ->
-               IntMap.add
-                 (int_of_string v)
-                 (List.assoc v list |> Game.game_of_pgn)
-                 acc
-            ) IntMap.empty games in
-        let game =
-          match model.route with
-          | Local id -> local_lens |-- IntMapLens.for_key id
-          | _ -> model.game in        
-        {model with local_games; game}, Cmd.none
-      with e -> Js.log e; model, Cmd.none
+    model,
+    Storage.save_game "scratch" model.scratch_game::
+    Storage.save_games model.local_games
+    |> Tea_task.sequence
+    |> Tea_task.attempt games_saved
+  | Games_saved Ok _ ->
+    Js.log "all games saved" ; model, Cmd.none
+  | Games_saved Error e -> Js.log e ; model, Cmd.none
+  | Games_loaded result ->
+    begin match result with
+      | Ok ((Some scratch_game), local_games) ->
+        {model with local_games; scratch_game}, Cmd.none
+      | Ok (None, local_games) ->
+        {model with local_games}, Cmd.none
+      | Error e -> Js.log e ; model, Cmd.none
     end
   | Clear_games ->
     model, Ex.LocalStorage.clearCmd ()
   | Load_tournament ->
-    let url = "https://lichess.org/api/tournament/GToVqkC9" in
-    {model with route = Tournament; tournament = Loading},
-    Http.getString url |> Http.send tournament_data
+    model,
+    location_of_route Tournament |> Navigation.modifyUrl
   | Tournament_data (Error _e) ->
     {model with tournament = Failed}, Cmd.none
   | Tournament_data (Ok data) -> 
@@ -366,6 +315,7 @@ let game_nav_view model =
 let buttons_view =
   nav []
     [ button [onClick New_tab] [text "new tab"]
+    ; button [onClick Reset_game] [text "reset game"]
     ; button [onClick Save_games] [text "save all games in local storage"]
     ; button [onClick Clear_games] [text "clear local storage"]
     ; button [onClick Load_tournament] [text "load a game from Lichess"]
