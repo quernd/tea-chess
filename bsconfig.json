@@ -12,5 +12,9 @@
   "bs-dependencies": [
     "bucklescript-tea",
     "ochess"
+  ],
+  "bsc-flags": [ 
+    "-bs-super-errors",
+    "-w -23"
   ]
 }
