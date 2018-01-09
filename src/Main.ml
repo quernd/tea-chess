@@ -1,12 +1,8 @@
 open Tea
 
-type color =
-  | Black
-  | White
-
 type model =
   { moves : int
-  ; turn : color
+  ; turn : Ochess.color
   }
 
 type msg =
@@ -21,11 +17,7 @@ let model =
 
 let update model = function
   | Move ->
-    let turn =
-      begin match model.turn with
-        | Black -> White
-        | White -> Black
-      end in
+    let turn = Ochess.opposite_color model.turn in
     let moves = model.moves + 1 in
     { turn; moves }
 

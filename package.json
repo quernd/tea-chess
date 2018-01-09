@@ -20,6 +20,7 @@
     "bs-platform": "^2.1.0",
     "bucklescript-tea": "^0.7.0",
     "npm-run-all": "^4.1.2",
+    "ochess": "github:quernd/ochess",
     "rollup": "^0.53.3",
     "rollup-plugin-node-resolve": "^3.0.0",
     "serve": "^6.4.4"
