@@ -1,6 +1,6 @@
 cb-board {
     display: inline-block;
-    border: 1px solid #444;
+    border: 1px solid #444444;
     box-sizing: content-box;
     width: 480px;
     height: 480px;
@@ -11,20 +11,20 @@ cb-row:after {
     clear: both;
 }
 cb-row:nth-child(even) cb-square:nth-child(even) {
-    background-color: #eeeeee;
-    color: #aabbcc;
+    background-color: #e0e0e0;
+    color: #a0b0c0;
 }
 cb-row:nth-child(even) cb-square:nth-child(odd) {
-    background-color: #aabbcc;
-    color: #eeeeee;
+    background-color: #a0b0c0;
+    color: #e0e0e0;
 }
 cb-row:nth-child(odd) cb-square:nth-child(even) {
-    background-color: #aabbcc;
-    color: #eeeeee;
+    background-color: #a0b0c0;
+    color: #e0e0e0;
 }
 cb-row:nth-child(odd) cb-square:nth-child(odd) {
-    background-color: #eeeeee;
-    color: #aabbcc;
+    background-color: #e0e0e0;
+    color: #a0b0c0;
 }
 
 cb-square {
