@@ -9,6 +9,7 @@ type msg =
   | Flip_board
   | Random_button
   | Random_move of Chess.move
+[@@bs.deriving {accessors}]
 
 
 let init () =
@@ -22,8 +23,21 @@ let update model = function
     { model with
       orientation = Chess.opposite_color model.orientation },
     Cmd.none
-  | Random_button -> model, Cmd.none
-  | Random_move _ -> model, Cmd.none
+  | Random_button ->
+    model,
+    begin match Chess.game_status model.position with
+      | Play move_list ->
+        move_list
+        |> List.length
+        |> Random.int 0
+        |> Random.generate
+          (fun random_number ->
+             List.nth move_list random_number |> random_move)
+      | _ -> Cmd.none
+    end
+  | Random_move move ->
+    let position = Chess.make_move model.position move 0 in
+    { model with position }, Cmd.none
 
 
 let board_view model =
