@@ -63,10 +63,13 @@ let view model =
     ]
 
 
+let subscriptions model =
+  Board.subscriptions model.board |> Sub.map board_msg
+
 let main =
   standardProgram
     { init
     ; update
     ; view
-    ; subscriptions = (fun _ -> Sub.none)
+    ; subscriptions
     }

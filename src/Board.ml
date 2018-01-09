@@ -91,6 +91,8 @@ let update model = function
         Cmd.none
       | Move_start drag, _ ->
         { model with state = Dragging drag }, Cmd.none
+      | Move_drag coordinates, Dragging drag ->
+        { model with state = Dragging { drag with coordinates } }, Cmd.none
       | _ -> model, Cmd.none
     end
   | _ -> model, Cmd.none
@@ -180,3 +182,12 @@ let view interactable pos_ar model =
 
   List.map rank_view ranks
   |> node "cb-board" []
+
+
+let subscriptions model = match model.state with
+  | Dragging _ ->
+    Sub.batch 
+      [ Mouse.moves (fun x -> Internal_msg (Move_drag x))
+      ; Mouse.ups  (fun x -> Internal_msg (Move_drop x))
+      ]
+  | _ -> Sub.none
