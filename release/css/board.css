@@ -1,4 +1,4 @@
-cb-board {
+cb-board, cb-promo {
     display: inline-block;
     border: 1px solid #444444;
     box-sizing: content-box;
@@ -31,9 +31,8 @@ cb-square {
     float: left;
     position: relative;
     display: inline-block;
-    user-select: none;
-    width: 60px;
-    height: 60px;
+    width: 12.5%;
+    height: 12.5%;
 }
 
 cb-piece {
@@ -92,6 +91,14 @@ cb-board.dragging {
     cursor: pointer;
 }
 
+cb-square:empty {
+    pointer-events: none;
+}
+
+cb-board.dragging cb-square {
+    pointer-events: auto;
+}
+
 cb-square:not(:empty) {
     cursor: pointer;
 }
@@ -104,4 +111,29 @@ cb-square.destination:not(:empty) {
 }
 cb-square.destination.hovering {
     background-image: linear-gradient(rgba(20,30,50,0.3), rgba(20,30,50,0.3));
+}
+
+cb-promo {
+    position: absolute;
+    background: rgba(250,250,250,0.7);
+    z-index: 2;
+}
+cb-promo cb-square {
+    position: absolute;
+    cursor: pointer;
+    border-radius: 50%;
+    background-color: #b0b0b0;
+    box-sizing: border-box;
+    transition: 0.2s;
+}
+cb-promo cb-square cb-piece {
+    transition: 0.2s;
+    transform: scale(0.8);
+}
+cb-promo cb-square:hover {
+    background-color: #d07000;
+    border-radius: 0%;
+}
+cb-promo cb-square:hover cb-piece {
+    transform: none;
 }

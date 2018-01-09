@@ -17,8 +17,15 @@ type dragging = { turn : color
                 ; size : size
                 }
 
+type promoting = { turn : color
+                 ; source_file : file
+                 ; target_file : file
+                 ; size : size
+                 }
+
 type state =
   | Dragging of dragging
+  | Promoting of promoting
   | Nothing
 [@@bs.deriving {accessors}]
 
@@ -39,6 +46,8 @@ type internal_msg =
   | Move_drop of Mouse.position
   | Square_entered of square
   | Square_left of square
+  | Promotion_canceled
+  | Piece_promoted of piece_type
 [@@bs.deriving {accessors}]
 
 type msg =
@@ -106,11 +115,23 @@ let update model = function
               | Completed_move move ->
                 { model with state = Nothing }, Cmd.msg (Move move)
               | Pawn_will_promote ->
-                { model with state = Nothing }, Cmd.none
+                { model with
+                  state = Promoting { turn = drag.turn
+                                    ; source_file = fst drag.source
+                                    ; target_file = fst target
+                                    ; size = drag.size
+                                    }
+                }, Cmd.none
               with Not_found -> { model with state = Nothing }, Cmd.none
             end
           | None -> { model with state = Nothing }, Cmd.none
         end
+      | Promotion_canceled, _ -> { model with state = Nothing }, Cmd.none
+      | Piece_promoted piece_type, Promoting promoting ->      
+        let move = Promotion (piece_type,
+                              promoting.source_file,
+                              promoting.target_file) in
+        { model with state = Nothing }, Cmd.msg (Move move)
       | _ -> model, Cmd.none
     end
   | _ -> model, Cmd.none
@@ -156,7 +177,7 @@ let move_start interactable =
   | Not_interactable -> None
 
 
-let view interactable pos_ar model =
+let board_view interactable pos_ar model =
   let open Html in
   let files, ranks =
     match model.orientation with
@@ -218,7 +239,51 @@ let view interactable pos_ar model =
     |> node "cb-row" [] in
 
   List.map rank_view ranks
-  |> node "cb-board" []
+  |> node "cb-board"
+    [ match model.state with
+      | Dragging _ -> class' "dragging"
+      | _ -> noProp
+    ]
+
+let view interactable pos_ar model =
+  let open Html in
+
+  let promo_view promoting =
+    let file = promoting.target_file in
+    let left, tops =
+      begin match model.orientation, promoting.turn with
+        | White, White -> file, [0; 1; 2; 3]
+        | White, Black -> file, [7; 6; 5; 4]
+        | Black, White -> 7 - file, [7; 6; 5; 4]
+        | Black, Black -> 7 - file, [0; 1; 2; 3]
+      end in
+
+    let promo_piece_view (top, piece_type) =
+      node "cb-square"
+        [ Internal_msg (Piece_promoted piece_type) |> onClick
+        ; styles
+            [ "left", Printf.sprintf "%dpx" (left * promoting.size)
+            ; "top", Printf.sprintf "%dpx" (top * promoting.size)
+            ]
+        ]
+        [ node "cb-piece"
+            [classList
+               [ Chess.string_of_color promoting.turn, true
+               ; Chess.string_of_piece_type piece_type, true
+               ]
+            ] []         
+        ] in
+
+    List.combine tops [Queen; Knight; Rook; Bishop]
+    |> List.map promo_piece_view
+    |> node "cb-promo" [ Internal_msg Promotion_canceled |> onClick ] in
+
+  node "cb-wrap" []
+    [ begin match model.state with
+        | Promoting promoting -> promo_view promoting
+        | _ -> noNode end
+    ; board_view interactable pos_ar model
+    ]
 
 
 let subscriptions model = match model.state with
