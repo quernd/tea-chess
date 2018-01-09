@@ -47,6 +47,10 @@ cb-piece {
     pointer-events: none;
 }
 
+cb-piece.dragged {
+    z-index: 9;
+}
+
 cb-piece.white.king {
     background-image: url("/img/pieces/wK.svg");
 }
