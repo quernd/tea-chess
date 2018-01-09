@@ -1,18 +1,18 @@
 open Tea
 
 type model =
-  { position : Ochess.position
-  ; orientation : Ochess.color
+  { position : Chess.position
+  ; orientation : Chess.color
   }
 
 type msg =
   | Flip_board
   | Random_button
-  | Random_move of Ochess.move
+  | Random_move of Chess.move
 
 
 let init () =
-  { position = Ochess.init_position
+  { position = Chess.init_position
   ; orientation = White
   }, Cmd.none
 
@@ -20,16 +20,46 @@ let init () =
 let update model = function
   | Flip_board ->
     { model with
-      orientation = Ochess.opposite_color model.orientation },
+      orientation = Chess.opposite_color model.orientation },
     Cmd.none
   | Random_button -> model, Cmd.none
   | Random_move _ -> model, Cmd.none
 
 
+let board_view model =
+  let open Html in
+  let files, ranks =
+    match model.orientation with
+    | White -> [0; 1; 2; 3; 4; 5; 6; 7], [7; 6; 5; 4; 3; 2; 1; 0]
+    | Black -> [7; 6; 5; 4; 3; 2; 1; 0], [0; 1; 2; 3; 4; 5; 6; 7] in
+
+  let rank_view rank =
+
+    let square_view rank file =
+      let piece_view =
+        match model.position.ar.(file).(rank) with
+        | Chess.Piece (piece_type, color) ->
+          node "cb-piece"
+            [ classList
+                [ Chess.string_of_color color, true
+                ; Chess.string_of_piece_type piece_type, true
+                ]
+            ] []
+        | Chess.Empty -> noNode in
+      node "cb-square" [] [piece_view] in
+
+    List.map (square_view rank) files
+    |> node "cb-row" [] in
+
+  List.map rank_view ranks
+  |> node "cb-board" []
+
+
 let view model =
   let open Html in
   div []
-    [ p [] [ Printf.sprintf "Move %d.  It is %s's move."
+    [ board_view model
+    ; p [] [ Printf.sprintf "Move %d.  It is %s's move."
                model.position.number
                (match model.position.turn with | Black -> "Black"
                                                | White -> "White")
