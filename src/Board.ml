@@ -37,8 +37,8 @@ type internal_msg =
   | Move_start of dragging
   | Move_drag of Mouse.position
   | Move_drop of Mouse.position
-  | Square_entered of file * rank
-  | Square_left of file * rank
+  | Square_entered of square
+  | Square_left of square
 [@@bs.deriving {accessors}]
 
 type msg =
@@ -93,6 +93,24 @@ let update model = function
         { model with state = Dragging drag }, Cmd.none
       | Move_drag coordinates, Dragging drag ->
         { model with state = Dragging { drag with coordinates } }, Cmd.none
+      | Square_entered square, Dragging drag ->
+        { model with state =
+                       Dragging { drag with target = Some square }
+        }, Cmd.none
+      | Square_left _, Dragging drag ->
+        { model with state = Dragging {drag with target = None} }, Cmd.none
+      | Move_drop _, Dragging drag -> Js.log drag;
+        begin match drag.target with
+          | Some target ->
+            begin try match List.assoc target drag.legal_targets with
+              | Completed_move move ->
+                { model with state = Nothing }, Cmd.msg (Move move)
+              | Pawn_will_promote ->
+                { model with state = Nothing }, Cmd.none
+              with Not_found -> { model with state = Nothing }, Cmd.none
+            end
+          | None -> { model with state = Nothing }, Cmd.none
+        end
       | _ -> model, Cmd.none
     end
   | _ -> model, Cmd.none
@@ -151,6 +169,13 @@ let view interactable pos_ar model =
       (drag.offset.y - (drag.size / 2) + drag.coordinates.y - drag.initial.y)
     |>  style "transform" in
 
+  let target_highlight drag target =
+    match drag.target with
+    | Some square when square = target -> true
+    | _ -> false
+  and legal_highlight drag target = List.exists
+      (fun (square, _) -> square = target) drag.legal_targets in
+
   let rank_view rank =
 
     let square_view rank file =
@@ -175,7 +200,19 @@ let view interactable pos_ar model =
           | Some (turn, msg) when color = turn -> 
             onCB "mousedown" "" (msg file rank |> handler offset_page_size)
           | _ -> noProp in
-      node "cb-square" [listener] [piece_view] in
+      node "cb-square"
+        (listener::
+         match model.state with
+         | Dragging drag ->
+           [ classList
+               [ "destination", legal_highlight drag (file, rank)
+               ; "hovering", target_highlight drag (file, rank)
+               ]
+           ; onMouseEnter (Internal_msg (Square_entered (file, rank)))
+           ; onMouseLeave (Internal_msg (Square_left (file, rank)))
+           ]
+         | _ -> [noProp; noProp; noProp])
+        [piece_view] in
 
     List.map (square_view rank) files
     |> node "cb-row" [] in

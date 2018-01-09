@@ -20,6 +20,9 @@ let init () =
 
 
 let update model = function
+  | Board_msg (Move move) ->
+    let position = Chess.make_move model.position move 0 in
+    { model with position }, Cmd.none
   | Board_msg msg ->
     let board, cmd = Board.update model.board msg in
     { model with board }, Cmd.map board_msg cmd
