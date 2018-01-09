@@ -83,10 +83,16 @@ let init =
 
 
 let update model = function
-  | Internal_msg Flip_board ->
-    { model with
-      orientation = Chess.opposite_color model.orientation },
-    Cmd.none
+  | Internal_msg msg ->
+    begin match msg, model.state with
+      | Flip_board, _ ->
+        { model with
+          orientation = Chess.opposite_color model.orientation },
+        Cmd.none
+      | Move_start drag, _ ->
+        { model with state = Dragging drag }, Cmd.none
+      | _ -> model, Cmd.none
+    end
   | _ -> model, Cmd.none
 
 
@@ -130,27 +136,44 @@ let move_start interactable =
   | Not_interactable -> None
 
 
-let view pos_ar model =
+let view interactable pos_ar model =
   let open Html in
   let files, ranks =
     match model.orientation with
     | White -> [0; 1; 2; 3; 4; 5; 6; 7], [7; 6; 5; 4; 3; 2; 1; 0]
     | Black -> [7; 6; 5; 4; 3; 2; 1; 0], [0; 1; 2; 3; 4; 5; 6; 7] in
 
+  let drag_transform drag =
+    Printf.sprintf "translate(%dpx,%dpx)" 
+      (drag.offset.x - (drag.size / 2) + drag.coordinates.x - drag.initial.x)
+      (drag.offset.y - (drag.size / 2) + drag.coordinates.y - drag.initial.y)
+    |>  style "transform" in
+
   let rank_view rank =
 
     let square_view rank file =
-      let piece_view =
+      let piece_view, listener =
         match pos_ar.(file).(rank) with
+        | Chess.Empty -> noNode, noProp
         | Chess.Piece (piece_type, color) ->
+          let drag_origin, transform =
+            match model.state with
+            | Dragging drag when (file, rank) = drag.source ->
+              true, drag_transform drag
+            | _ -> false, noProp in
           node "cb-piece"
-            [ classList
+            [ transform
+            ; classList
                 [ Chess.string_of_color color, true
                 ; Chess.string_of_piece_type piece_type, true
+                ; "dragged", drag_origin
                 ]
-            ] []
-        | Chess.Empty -> noNode in
-      node "cb-square" [] [piece_view] in
+            ] [],
+          match move_start interactable with
+          | Some (turn, msg) when color = turn -> 
+            onCB "mousedown" "" (msg file rank |> handler offset_page_size)
+          | _ -> noProp in
+      node "cb-square" [listener] [piece_view] in
 
     List.map (square_view rank) files
     |> node "cb-row" [] in

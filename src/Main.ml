@@ -42,8 +42,13 @@ let update model = function
 
 let view model =
   let open Html in
+  let interactable =
+    match Chess.game_status model.position with
+    | Play move_list ->
+      Board.Interactable (model.position.turn, move_list)
+    | _ -> Board.Not_interactable in
   div []
-    [ Board.view model.position.ar model.board |> map board_msg
+    [ Board.view interactable model.position.ar model.board |> map board_msg
     ; p [] [ Printf.sprintf "Move %d.  It is %s's move."
                model.position.number
                (match model.position.turn with | Black -> "Black"
