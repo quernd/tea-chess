@@ -47,6 +47,35 @@ type msg =
 [@@bs.deriving {accessors}]
 
 
+let cartesian_decoder field_x field_y =
+  let open Json.Decoder in
+  let open Mouse in
+  map2 (fun x y -> {x; y})
+    (field field_x int)
+    (field field_y int)
+
+let page =
+  cartesian_decoder "pageX" "pageY"
+  |> Json.Decoder.decodeEvent
+
+let offset_page_size =
+  let open Json.Decoder in
+  let size = field "clientWidth" int in
+  map3
+    (fun a b c -> a, b, c)
+    (cartesian_decoder "offsetX" "offsetY")
+    (cartesian_decoder "pageX" "pageY")
+    (field "target" size)
+  |> decodeEvent
+
+let handler decoder msg event =
+  let open Result in
+  let result = decoder event in
+  match result with
+  | Ok result -> Some (msg result)
+  | Error _ -> None
+
+
 let init =
   { orientation = Chess.White
   ; state = Nothing
