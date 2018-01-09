@@ -1,0 +1,84 @@
+cb-board {
+    display: inline-block;
+    border: 1px solid #444;
+    box-sizing: content-box;
+    width: 480px;
+    height: 480px;
+}
+
+cb-row:after {
+    display: block;
+    clear: both;
+}
+cb-row:nth-child(even) cb-square:nth-child(even) {
+    background-color: #eeeeee;
+    color: #aabbcc;
+}
+cb-row:nth-child(even) cb-square:nth-child(odd) {
+    background-color: #aabbcc;
+    color: #eeeeee;
+}
+cb-row:nth-child(odd) cb-square:nth-child(even) {
+    background-color: #aabbcc;
+    color: #eeeeee;
+}
+cb-row:nth-child(odd) cb-square:nth-child(odd) {
+    background-color: #eeeeee;
+    color: #aabbcc;
+}
+
+cb-square {
+    float: left;
+    position: relative;
+    display: inline-block;
+    user-select: none;
+    width: 60px;
+    height: 60px;
+}
+
+cb-piece {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    z-index: 1;
+}
+
+cb-piece.white.king {
+    background-image: url("/img/pieces/wK.svg");
+}
+cb-piece.white.queen {
+    background-image: url("/img/pieces/wQ.svg");
+}
+cb-piece.white.rook {
+    background-image: url("/img/pieces/wR.svg");
+}
+cb-piece.white.bishop {
+    background-image: url("/img/pieces/wB.svg");
+}
+cb-piece.white.knight {
+    background-image: url("/img/pieces/wN.svg");
+}
+cb-piece.white.pawn {
+    background-image: url("/img/pieces/wP.svg");
+}
+cb-piece.black.king {
+    background-image: url("/img/pieces/bK.svg");
+}
+cb-piece.black.queen {
+    background-image: url("/img/pieces/bQ.svg");
+}
+cb-piece.black.rook {
+    background-image: url("/img/pieces/bR.svg");
+}
+cb-piece.black.bishop {
+    background-image: url("/img/pieces/bB.svg");
+}
+cb-piece.black.knight {
+    background-image: url("/img/pieces/bN.svg");
+}
+cb-piece.black.pawn {
+    background-image: url("/img/pieces/bP.svg");
+}
