@@ -96,6 +96,40 @@ let flip_button_view =
     [ onClick (Internal_msg Flip_board) ]
     [ text "Flip board" ]
 
+
+let filter_targets source moves =
+  List.filter (fun ((s, _t), _m) -> s = source) moves
+  |> List.map (fun ((_s, t), m) -> t, m)
+
+let completed_move = function
+  | Promotion _ -> Pawn_will_promote
+  | move -> Completed_move move
+
+let coordinate_pairs turn move =
+  Chess.coordinate_pairs turn move, completed_move move
+
+let move_start interactable =
+  match interactable with
+  | Interactable (turn, legal_moves) ->
+    Some (turn,
+          fun file rank (offset, coordinates, size) ->
+            Internal_msg
+              (Move_start
+                 { turn
+                 ; source = (file, rank)
+                 ; target = None
+                 ; legal_targets =
+                     legal_moves
+                     |> List.map (coordinate_pairs turn)
+                     |> filter_targets (file, rank) 
+                 ; initial = coordinates
+                 ; offset
+                 ; coordinates
+                 ; size
+                 } ) )
+  | Not_interactable -> None
+
+
 let view pos_ar model =
   let open Html in
   let files, ranks =
