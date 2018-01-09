@@ -9,17 +9,17 @@ type msg =
   | Move
 
 
-let model =
+let init () =
   { moves = 1
   ; turn = White
-  }
+  }, Cmd.none
 
 
 let update model = function
   | Move ->
     let turn = Ochess.opposite_color model.turn in
     let moves = model.moves + 1 in
-    { turn; moves }
+    { turn; moves }, Cmd.none
 
 
 let view model =
@@ -39,8 +39,9 @@ let view model =
 
 
 let main =
-  App.beginnerProgram
-    { model
+  App.standardProgram
+    { init
     ; update
     ; view
+    ; subscriptions = (fun _ -> Sub.none)
     }
