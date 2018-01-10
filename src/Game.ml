@@ -31,6 +31,22 @@ let simple_move move san =
   }
 
 
+let game_of_pgn string =
+  let make_pgn_move model pgn_move =
+    let move = Pgn.move_of_pgn_move model.position pgn_move in
+    let san = Chess.san_of_move model.position move in
+    let position = Chess.make_move' model.position move in
+    let moves = Zipper.fwd' (simple_move move san) model.moves in
+    { position; moves } in
+
+  match Pgn.parse_pgn string with
+  | Some pgn_game ->
+    begin try Some (List.fold_left make_pgn_move init pgn_game.moves)
+      with Chess.Illegal_move -> None
+    end
+  | None -> None
+
+
 let jump model how_many =
 
   let rec jump_fwd position zipper n =
@@ -56,7 +72,7 @@ let update model = function
   | Move move ->
     begin try
         let san = Chess.san_of_move model.position move in
-        let position = Chess.make_move model.position move 0 in
+        let position = Chess.make_move' model.position move in
         { model with position
                    ; moves = Zipper.fwd' (simple_move move san) model.moves 
         }, Cmd.none

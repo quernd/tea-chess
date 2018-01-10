@@ -51,8 +51,7 @@ let update model = function
     end, Cmd.none
   | Load_game game_id ->
     model, get_game game_data game_id
-  | Game_data (Error e) -> Js.log e; model, Cmd.none
-  | Game_data (Ok data) -> Js.log data; model, Cmd.none
+  | Game_data _ -> model, Cmd.none
 
 
 let view model =

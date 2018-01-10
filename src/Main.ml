@@ -16,6 +16,7 @@ type msg =
   | Key_pressed of Keyboard.key_event
 [@@bs.deriving {accessors}]
 
+external alert : (string -> unit) = "alert" [@@bs.val]
 
 let init () =
   { game = Game.init
@@ -33,6 +34,15 @@ let update model = function
   | Game_msg msg ->
     let game, cmd = Game.update model.game msg in
     { model with game }, Cmd.map game_msg cmd
+  | Lichess_msg (Game_data (Error _)) ->
+    alert "Game could not be loaded!";
+    model, Cmd.none
+  | Lichess_msg (Game_data (Ok data)) ->
+    begin match Game.game_of_pgn data with
+      | Some game -> { model with game }, Cmd.none
+      | None -> alert "Game could not be parsed!";
+        model, Cmd.none
+    end
   | Lichess_msg msg ->
     let lichess, cmd = Lichess.update model.lichess msg in
     { model with lichess }, Cmd.map lichess_msg cmd
