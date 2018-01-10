@@ -50,6 +50,27 @@ let make_move' position move =
 let char_of_file file = "abcdefgh".[file]
 let char_of_rank rank = "12345678".[rank]
 
+let file_of_char = function | 'a' -> 0 | 'b' -> 1 | 'c' -> 2 | 'd' -> 3
+                            | 'e' -> 4 | 'f' -> 5 | 'g' -> 6 | 'h' -> 7
+                            | _ -> raise (Invalid_argument "not a file")
+
+let pieces_chars =
+  [ (King, Black), 'k'
+  ; (King, White), 'K'
+  ; (Queen, Black), 'q'
+  ; (Queen, White), 'Q'
+  ; (Rook, Black), 'r'
+  ; (Rook, White), 'R'
+  ; (Bishop, Black), 'b'
+  ; (Bishop, White), 'B'
+  ; (Knight, Black), 'n'
+  ; (Knight, White), 'N'
+  ; (Pawn, Black), 'p'
+  ; (Pawn, White), 'P'
+  ]
+
+let char_of_piece piece = List.assoc piece pieces_chars
+let piece_of_char char = rassoc char pieces_chars
 
 (* SAN generation *)
 
@@ -172,3 +193,148 @@ let san_of_move position move =
   let move_list = legal_moves position |> List.map (long_move position) in
   san_of_move' position move_list move
 
+
+module FEN = struct
+
+  exception Parse_error = Invalid_argument
+
+  let fen_of_position position =
+    let coordinates = [7; 6; 5; 4; 3; 2; 1; 0] in
+
+    let char_of_empty i = "0123456789".[i] in
+
+    let rank n =
+      let rec loop (acc, empty) = function
+        | [] -> acc, empty
+        | hd::tl -> 
+          begin match position.ar.(hd).(n) with
+            | Empty -> loop (acc, empty + 1) tl
+            | Piece piece -> 
+              if empty > 0
+              then loop (char_of_piece piece::char_of_empty empty::acc, 0) tl
+              else loop (char_of_piece piece::acc, 0) tl
+          end in
+      let acc, empty = loop ([], 0) coordinates in
+      Opal.implode (if empty > 0 then char_of_empty empty::acc else acc) in
+
+    let board = List.map rank coordinates |> String.concat "/" in
+    let full_move = position.number / 2 + 1 in
+    let en_passant =
+      match position.en_passant with
+      | None -> "-"
+      | Some file -> Printf.sprintf "%c%c" (char_of_file file)
+                       (if position.turn = White then '6' else '3') in
+
+    let castling_white =
+      match position.cas_w with
+      | true, true -> "KQ"
+      | true, false -> "Q"
+      | false, true -> "K"
+      | false, false -> "" in
+    let castling_black =
+      match position.cas_b with
+      | true, true -> "kq"
+      | true, false -> "q"
+      | false, true -> "k"
+      | false, false -> "" in
+    let castling = castling_white ^ castling_black in
+
+    let turn = match position.turn with White -> 'w' | Black -> 'b' in
+
+    Printf.sprintf "%s %c %s %s %d %d" board turn castling en_passant position.irr_change full_move
+
+  let board_of_fen board =
+    let ranks = Js.String.split "/" board in
+    match Array.length ranks with
+    | 8 ->
+      let ar = Array.make_matrix 8 8 Empty in
+      let king_w = ref None and king_b = ref None in
+      Array.iteri
+        (fun i rank_string ->
+           let rank = 7 - i in
+           let file = ref 0 in
+           String.iter
+             (function
+               | '0' -> ()  (* non-standard but not harmful either *)
+               | '1' -> file := !file + 1
+               | '2' -> file := !file + 2
+               | '3' -> file := !file + 3
+               | '4' -> file := !file + 4
+               | '5' -> file := !file + 5
+               | '6' -> file := !file + 6
+               | '7' -> file := !file + 7
+               | '8' -> file := !file + 8
+               | piece ->
+                 begin match piece with
+                   | 'K' -> if !king_w = None then king_w := Some (!file, rank)
+                     else raise (Parse_error "more than one white king")
+                   | 'k' -> if !king_b = None then king_b := Some (!file, rank)
+                     else raise (Parse_error "more than one black king")
+                   | _ -> ()
+                 end ;
+                 begin
+                   try ar.(!file).(rank) <- Piece (piece_of_char piece)
+                   with
+                   | Invalid_argument _ ->
+                     raise (Parse_error "too many squares on one rank")
+                   | Not_found ->
+                     raise (Parse_error "not a piece")
+                 end ;
+                 incr file
+             ) rank_string
+        ) ranks ;
+      begin match !king_w, !king_b with
+        | (Some king_w, Some king_b) -> ar, king_w, king_b
+        | None, Some _ -> raise (Parse_error "white king is missing")
+        | Some _, None -> raise (Parse_error "black king is missing")
+        | None, None -> raise (Parse_error "both kings are missing")
+      end
+    | _ -> raise (Parse_error "not exactly 8 ranks")
+
+  let castling_of_turn castling =
+    (String.contains castling 'Q', String.contains castling 'K'),
+    (String.contains castling 'q', String.contains castling 'q')
+
+  let turn_of_fen = function | "w" -> White | "b" -> Black
+                             | _ -> raise (Parse_error "whose move is it?")
+
+  let en_passant_of_fen square =
+    match square with
+    | "-" -> None
+    | _ ->
+      begin try Some (file_of_char square.[0]) with
+          _ -> raise (Parse_error "en passant square couldn't be parsed")
+      end
+
+  let position_of_fen fen =
+    let fields = Js.String.split " " fen |> Array.to_list in
+    match fields with
+    | [board; turn; castling; en_passant; irr_change; full_move] ->
+      let ar, king_w, king_b = board_of_fen board in
+      let cas_w, cas_b = castling_of_turn castling in
+      let turn = turn_of_fen turn in
+      { ar
+      ; king_w
+      ; king_b
+      ; turn
+      ; cas_w
+      ; cas_b
+      ; en_passant = en_passant_of_fen en_passant
+      ; irr_change =
+          (try int_of_string irr_change with _ ->
+             raise (Parse_error "halfmove clock couldn't be parsed"))
+      ; number =
+          begin try
+              let number' = int_of_string full_move * 2 in
+              match turn with
+              | White -> number' - 2
+              | Black -> number' - 1
+            with _ ->
+              raise (Parse_error "fullmove clock couldn't be parsed")
+          end
+      ; prev = None
+      ; eval = 0
+      }
+    | _ -> raise (Parse_error "too many or missing fields")
+
+end
