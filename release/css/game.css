@@ -1,0 +1,12 @@
+ul.moves {
+    margin: .25em;
+    padding: .25em;
+    list-style-type: none;
+}
+
+li.move {
+    display: inline;
+}
+li.move:after {
+    content: " ";
+}

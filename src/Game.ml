@@ -50,7 +50,7 @@ let update model = function
 let view model =
   let open Html in
   let move_view move =
-    li [] [ text move.san ] in
+    li [ class' "move" ] [ text move.san ] in
 
   div []
     [ p [] [ Printf.sprintf "Move %d.  It is %s's move."
@@ -59,5 +59,5 @@ let view model =
                                                | White -> "White")
              |> text
            ]
-    ; List.rev_map move_view model.moves |> ul []
+    ; List.rev_map move_view model.moves |> ul [ class' "moves" ]
     ]
