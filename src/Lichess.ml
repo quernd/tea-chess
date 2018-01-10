@@ -3,6 +3,8 @@ open Tea
 type msg =
   | Load_tournament
   | Tournament_data of (string, string Http.error) Result.t
+  | Load_game of string
+  | Game_data of (string, string Http.error) Result.t
 [@@bs.deriving {accessors}]
 
 type 'a transfer =
@@ -15,6 +17,12 @@ type model = (string * string list) list transfer
 
 let init = Idle
 
+
+let get_game msg game_id =
+  Printf.sprintf
+    "https://lichess.org/game/export/%s.pgn" game_id
+  |> Http.getString
+  |> Http.send msg
 
 let update model = function
   | Load_tournament ->
@@ -39,12 +47,19 @@ let update model = function
       | Ok tournament -> Received tournament
       | Error _ -> Failed
     end, Cmd.none
+  | Load_game game_id ->
+    model, get_game game_data game_id
+  | Game_data (Error e) -> Js.log e; model, Cmd.none
+  | Game_data (Ok data) -> Js.log data; model, Cmd.none
 
 
 let view model =
   let open Html in
   let game_view (id, players) =
-    td [] [ text id ]::
+    td [] [ button
+              [ onClick (Load_game id) ]
+              [ text id ]
+          ]::
     List.map (fun player -> td [] [ text player ]) players
     |> tr [] in
 
