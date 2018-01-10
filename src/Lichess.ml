@@ -57,8 +57,7 @@ let update model = function
 let view model =
   let open Html in
   let game_view (id, players) =
-    td [] [ button
-              [ onClick (Load_game id) ]
+    td [] [ a [ Printf.sprintf "#/lichess/%s" id |> href ]
               [ text id ]
           ]::
     List.map (fun player -> td [] [ text player ]) players

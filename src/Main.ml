@@ -5,10 +5,16 @@ open Util
 open Lens
 open Infix
 
+type route =
+  | Game of int
+  | Tournament
+  | Lichess of string
+
+
 type model =
   { games : Game.model IntMap.t
   ; game : (model, Game.model) Lens.t
-  ; selected : int
+  ; route : route
   ; board : Board.model
   ; lichess : Lichess.model
   ; lichess_games : Game.model StringMap.t
@@ -22,8 +28,9 @@ type msg =
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
   | Reset_game
-  | New_game
   | Switch_game of int
+  | New_game
+  | Location_changed of Web.Location.location
 [@@bs.deriving {accessors}]
 
 external alert : (string -> unit) = "alert" [@@bs.val]
@@ -33,23 +40,62 @@ let games_lens =
   ; set = (fun v r -> { r with games = v })
   }
 
-let init () =
-  { games = IntMap.empty |> IntMap.add 1 Game.init
-  ; game = games_lens |-- IntMapLens.for_key 1
-  ; selected = 1
-  ; board = Board.init
-  ; lichess = Lichess.init
-  ; lichess_games = StringMap.empty
-  }, Cmd.none
-
-
 let add_game_update_lens game model =
   let key = (IntMap.max_binding model.games |> fst) + 1 in
   let games = IntMap.add key game model.games in
   { model with games
-             ; selected = key
              ; game = games_lens |-- IntMapLens.for_key key
+  }, key
+
+
+let route_of_location (location:Web.Location.location) =
+  let route = Js.String.split "/" location.hash |> Array.to_list in
+  match route with
+  | ["#"; ""] -> Game 1
+  | ["#"; "tournament"] -> Tournament
+  | ["#"; "game"; id] -> Game (int_of_string id)
+  | ["#"; "lichess"; id] -> Lichess id
+  | _ -> Game 1  (* default route *)
+
+let location_of_route = function
+  | Game id -> Printf.sprintf "#/game/%d" id
+  | Lichess id -> Printf.sprintf "#/lichess/%s" id
+  | Tournament -> "#/tournament"
+
+
+let update_route model = function
+  | route when model.route = route -> model, Cmd.none
+  | Game id as route when IntMap.mem id model.games ->
+    let game = games_lens |-- IntMapLens.for_key id in
+    { model with route; game }, Cmd.none
+  | Game _ -> { model with route = Game 1 }, Cmd.none
+  | Tournament ->
+    { model with route = Tournament }, Cmd.msg (Lichess_msg Load_tournament)
+  | Lichess game_id ->
+    begin try
+        let game = StringMap.find game_id model.lichess_games in
+        let model, key = add_game_update_lens game model in
+        model,
+        location_of_route (Game key) |> Navigation.modifyUrl
+      with Not_found ->
+        model, Cmd.msg (Lichess_msg (Load_game game_id))
+    end
+
+
+let init_model =
+  { games = IntMap.empty |> IntMap.add 1 Game.init
+  ; game = games_lens |-- IntMapLens.for_key 1
+  ; route = Game 1
+  ; board = Board.init
+  ; lichess = Lichess.init
+  ; lichess_games = StringMap.empty
   }
+
+
+let init () location =
+  let model, cmd =
+    route_of_location location |> update_route init_model in
+  model, cmd
 
 
 let update model = function
@@ -61,13 +107,6 @@ let update model = function
   | Game_msg msg ->
     let game, cmd = Game.update (model |. model.game) msg in
     model |> model.game ^= game, Cmd.map game_msg cmd
-  | Lichess_msg (Load_game id) ->
-    begin try let game = StringMap.find id model.lichess_games in
-        add_game_update_lens game model, Cmd.none
-      with Not_found ->
-        let lichess, cmd = Lichess.update model.lichess (Load_game id) in
-        { model with lichess }, Cmd.map lichess_msg cmd
-    end
   | Lichess_msg (Game_data (game_id, Error _)) ->
     Printf.sprintf "Game %s could not be loaded!" game_id |> alert;
     model, Cmd.none
@@ -75,8 +114,10 @@ let update model = function
     begin match Game.game_of_pgn data with
       | Some game ->
         let lichess_games = StringMap.add game_id game model.lichess_games in
-        { model with lichess_games }
-        |> add_game_update_lens game, Cmd.none
+        let model, key =
+          { model with lichess_games }
+          |> add_game_update_lens game in
+        model, location_of_route (Game key) |> Navigation.modifyUrl
       | None -> alert "Game could not be parsed!";
         model, Cmd.none
     end
@@ -108,10 +149,15 @@ let update model = function
     end
   | Reset_game ->
     model |> model.game ^= Game.init, Cmd.none
-  | New_game ->
-    add_game_update_lens Game.init model, Cmd.none
-  | Switch_game i ->
-    { model with game = games_lens |-- IntMapLens.for_key i }, Cmd.none
+  | New_game -> 
+    let model, key = add_game_update_lens Game.init model in
+    model, location_of_route (Game key) |> Navigation.newUrl
+  | Switch_game 0 -> model,
+                     location_of_route Tournament |> Navigation.newUrl
+  | Switch_game i -> model,
+                     location_of_route (Game i) |> Navigation.newUrl
+  | Location_changed location ->
+    route_of_location location |> update_route model
 
 
 let header_nav_view =
@@ -128,15 +174,21 @@ let header_nav_view =
     ]
 
 
-let games_picker selected games =
+let games_picker model =
   let open Html in
+  let selected = match model.route with
+    | Game id -> Some id
+    | _ -> None in
   let option_view k _v acc =
     option' [ string_of_int k |> value
-            ; Attributes.selected (selected = k) ]
+            ; Attributes.selected (selected = Some k) ]
       [ Printf.sprintf "Game %d" k |> text ]::acc in
 
-  IntMap.fold option_view games []
-  |> List.rev
+  let options = IntMap.fold option_view model.games []
+                |> List.rev in
+  option' [ value "0"
+          ; Attributes.selected (model.route = Tournament) ]
+    [ text "Tournament" ]::options
   |> select [ int_of_string >> switch_game |> onChange ]
 
 
@@ -166,7 +218,7 @@ let view model =
         ]
     ; section [ id "game" ]
         [ nav [] [ ul [] [ li []
-                             [ games_picker model.selected model.games ]
+                             [ games_picker model ]
                          ; button
                              [ onClick Reset_game ]
                              [ text "reset game" ]
@@ -176,8 +228,10 @@ let view model =
                          ]
                  ]
         ; div [ class' "scroll" ]
-            [ Game.view game |> map game_msg
-            ; Lichess.view model.lichess |> map lichess_msg
+            [ match model.route with
+              | Game _ -> Game.view game |> map game_msg
+              | Tournament -> Lichess.view model.lichess |> map lichess_msg
+              | _ -> noNode
             ]
         ]
     ]
@@ -189,9 +243,10 @@ let subscriptions model =
   ] |> Sub.batch
 
 let main =
-  standardProgram
+  Navigation.navigationProgram location_changed
     { init
     ; update
     ; view
     ; subscriptions
+    ; shutdown = (fun _ -> Cmd.none)
     }
