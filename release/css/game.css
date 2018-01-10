@@ -26,8 +26,34 @@ li.move.white > span.number {
 }
 
 li.move.highlight > span.move {
-  background: #ff0;
+    background: #ff0;
 }
 span.move {
-  cursor: pointer;
+    cursor: pointer;
+}
+
+ul.pgnheader {
+    list-style-type: none;
+}
+ul.pgnheader label {
+    display: block;
+}
+ul.pgnheader label span {
+    color: #008000;
+    font-weight: bold;
+    width: 100px;
+    float: left;
+    text-align: right;
+}
+ul.pgnheader label span:not(:hover) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+ul.pgnheader label span:after {
+    content: ":\00a0";
+}
+.result {
+    font-weight: bold;
+    text-align: center;
 }
