@@ -10,3 +10,17 @@ li.move {
 li.move:after {
     content: " ";
 }
+
+span.number {
+    color: #808080;
+    display: none;
+}
+li.move.white > span.number:after {
+    content: ".\00a0";
+}
+li.move.black > span.number:after {
+    content: "...\00a0";
+}
+li.move.white > span.number {
+    display: inline;
+}

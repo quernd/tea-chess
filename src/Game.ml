@@ -49,8 +49,18 @@ let update model = function
 
 let view model =
   let open Html in
-  let move_view move =
-    li [ class' "move" ] [ text move.san ] in
+  let move_view i move =
+    let ply = model.position.number - i - 1 in
+    let turn = if ply mod 2 = 0 then Chess.White else Chess.Black in
+    let number = (ply / 2) + 1 in
+    li [ classList [ "move", true
+                   ; "white", turn = Chess.White
+                   ; "black", turn = Chess.Black
+                   ]
+       ]
+      [ span [ class' "number" ] [ string_of_int number |> text ]
+      ; span [ class' "move" ] [ text move.san ]
+      ] in
 
   div []
     [ p [] [ Printf.sprintf "Move %d.  It is %s's move."
@@ -59,5 +69,7 @@ let view model =
                                                | White -> "White")
              |> text
            ]
-    ; List.rev_map move_view model.moves |> ul [ class' "moves" ]
+    ; List.mapi move_view model.moves
+      |> List.rev
+      |> ul [ class' "moves" ]
     ]
