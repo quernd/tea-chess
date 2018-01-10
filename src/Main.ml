@@ -18,6 +18,7 @@ type model =
   ; board : Board.model
   ; lichess : Lichess.model
   ; lichess_games : Game.model StringMap.t
+  ; stockfish : Stockfish.model option
   }
 
 type msg =
@@ -35,9 +36,21 @@ type msg =
   | Clear_games
   | Games_loaded of Web.Location.location * (Game.model IntMap.t, string) Result.t
   | Games_saved of (unit list, string) Result.t
+  | Load_stockfish
+  | Stockfish_msg of Stockfish.msg
 [@@bs.deriving {accessors}]
 
 external alert : (string -> unit) = "alert" [@@bs.val]
+
+external stockfish_loader :
+  (string -> msg) -> Stockfish.stockfish Js.nullable =
+  "stockfish_loader" [@@bs.val]
+
+let stockfish_move position =
+  position
+  |> Stockfish.make_move
+  |> stockfish_msg
+
 
 let games_lens =
   { get = (fun r -> r.games)
@@ -93,6 +106,7 @@ let init_model =
   ; board = Board.init
   ; lichess = Lichess.init
   ; lichess_games = StringMap.empty
+  ; stockfish = None
   }
 
 let init () location =
@@ -176,6 +190,31 @@ let update model = function
     Printf.sprintf "games couldn't be restored because of error %s" e |> alert;
     route_of_location location
     |> update_route model
+  | Load_stockfish ->
+    let f = (fun string -> Stockfish.data string |> stockfish_msg) in
+    begin match stockfish_loader f |> Js.Nullable.to_opt
+      with
+      | None -> Js.log "Stockfish failed to load"; model, Cmd.none
+      | Some stockfish ->
+        { model with stockfish = Some (Stockfish.init stockfish) }, Cmd.none
+    end
+  | Stockfish_msg (Move move) ->
+    begin try
+        let move' = Pgn.move_of_pgn_move
+            ((model |. model.game).position) move in
+        let game, cmd =
+          Game.update (model |. model.game) (Game.Move move') in
+        model |> model.game ^= game, Cmd.map game_msg cmd
+      with Chess.Illegal_move -> model, Cmd.none
+      (* Stockfish rarely makes illegal moves, but just in case ;-) *)
+    end
+  | Stockfish_msg msg ->
+    begin match model.stockfish with
+      | None -> model, Cmd.none
+      | Some stockfish' ->
+        let stockfish, cmd = Stockfish.update stockfish' msg in
+        { model with stockfish = Some stockfish }, Cmd.map stockfish_msg cmd
+    end
 
 
 let header_nav_view =
@@ -219,12 +258,32 @@ let view model =
     | Play move_list ->
       Board.Interactable (position.turn, move_list)
     | _ -> Board.Not_interactable in
+
+  let stockfish_view =
+    match model.stockfish with
+    | None -> p [] [ button
+                       [ onClick Load_stockfish ]
+                       [ "load Stockfish" |> text ]
+                   ]
+    | Some stockfish ->
+      p [] [ match stockfish.status with
+          | Idle ->
+            begin match interactable with
+              | Board.Not_interactable -> Game.status_view position
+              | _ -> button
+                       [ game.position |> Chess.FEN.fen_of_position
+                         |> stockfish_move |> onClick ]
+                       [ text "move, computer!" ]
+            end
+          | Loading -> text "loading Stockfish"
+          | Thinking -> text "Stockfish is thinking"
+        ] in
+
   main []
     [ section [ id "board" ]
         [ header_nav_view
         ; Board.view interactable position.ar model.board
           |> map board_msg
-        ; Game.status_view position
         ; p [] [ map board_msg Board.flip_button_view
                ; button
                    [ onClick Random_button ]
@@ -233,6 +292,7 @@ let view model =
                    [ onClick (Game_msg Take_back) ]
                    [ text "Take back" ]
                ]
+        ; stockfish_view
         ]
     ; section [ id "game" ]
         [ nav [] [ ul [] [ li []

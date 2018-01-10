@@ -108,7 +108,7 @@ let update model = function
         }, Cmd.none
       | Square_left _, Dragging drag ->
         { model with state = Dragging {drag with target = None} }, Cmd.none
-      | Move_drop _, Dragging drag -> Js.log drag;
+      | Move_drop _, Dragging drag ->
         begin match drag.target with
           | Some target ->
             begin try match List.assoc target drag.legal_targets with

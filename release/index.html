@@ -14,9 +14,16 @@
 
   <body>
     <script src="main.js"></script>
-    <script>
-        setTimeout(function(){
-        var app = starter.main(document.body);
+      <script>
+        stockfish_loader = function (handler) {
+          stockfish = new Worker('js/stockfish.js');
+          stockfish.onmessage = function(msg) {
+            app.pushMsg(handler(msg.data));
+          };
+          return stockfish;
+        };
+        setTimeout(function() {
+          app = starter.main(document.body);
         }, 1)
     </script>
   </body>
