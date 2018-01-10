@@ -113,15 +113,27 @@ let move_list_view ply (past, future) =
   |> ul [class' "moves"]
 
 
+let status_view position =
+  let open Html in
+
+  p []
+    [ begin match Chess.game_status position with
+        | Chess.Win Black -> "Black wins by checkmate!"
+        | Chess.Win White -> "White wins by checkmate!"
+        | Chess.Draw -> "It's a draw!"
+        | Chess.Play move_list ->
+          Printf.sprintf "It is %s's move,  %d legal moves"
+            (match position.turn with | Black -> "Black"
+                                      | White -> "White")
+            (List.length move_list)
+      end |> text
+    ]
+
+
 let view model =
   let open Html in
   div []
-    [ p [] [ Printf.sprintf "Move %d.  It is %s's move."
-               model.position.number
-               (match model.position.turn with | Black -> "Black"
-                                               | White -> "White")
-             |> text
-           ]
+    [ status_view model.position
     ; move_list_view model.position.number model.moves
     ]
 
