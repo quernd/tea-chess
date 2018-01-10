@@ -17,10 +17,12 @@ type model = (string * string list) list transfer
 
 let init = Idle
 
+let proxy = "http://localhost:3000/fetch/"
+
 
 let get_game msg game_id =
   Printf.sprintf
-    "https://lichess.org/game/export/%s.pgn" game_id
+    "%shttps://lichess.org/game/export/%s.pgn" proxy game_id
   |> Http.getString
   |> Http.send msg
 
