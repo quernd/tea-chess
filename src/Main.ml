@@ -31,6 +31,10 @@ type msg =
   | Switch_game of int
   | New_game
   | Location_changed of Web.Location.location
+  | Save_games
+  | Clear_games
+  | Games_loaded of Web.Location.location * (Game.model IntMap.t, string) Result.t
+  | Games_saved of (unit list, string) Result.t
 [@@bs.deriving {accessors}]
 
 external alert : (string -> unit) = "alert" [@@bs.val]
@@ -91,12 +95,9 @@ let init_model =
   ; lichess_games = StringMap.empty
   }
 
-
 let init () location =
-  let model, cmd =
-    route_of_location location |> update_route init_model in
-  model, cmd
-
+  (* wait for games to be restored before the route is updated *)
+  init_model, Tea_task.attempt (games_loaded location) Storage.load_games
 
 let update model = function
   | Board_msg (Move move) | Random_move move ->
@@ -158,6 +159,23 @@ let update model = function
                      location_of_route (Game i) |> Navigation.newUrl
   | Location_changed location ->
     route_of_location location |> update_route model
+  | Save_games -> model,
+                  Storage.save_games model.games
+                  |> Tea_task.sequence
+                  |> Tea_task.attempt games_saved
+  | Games_saved (Ok _) -> alert "games successfully saved"; model, Cmd.none
+  | Games_saved (Error e) ->
+    Printf.sprintf "games couldn't be saved because of error %s" e |> alert;
+    model, Cmd.none
+  | Clear_games -> model, Ex.LocalStorage.clearCmd ()
+  | Games_loaded (location, Ok games) ->
+    route_of_location location
+    |> update_route
+      (if games = IntMap.empty then model else { model with games })
+  | Games_loaded (location, Error e) ->
+    Printf.sprintf "games couldn't be restored because of error %s" e |> alert;
+    route_of_location location
+    |> update_route model
 
 
 let header_nav_view =
@@ -225,6 +243,12 @@ let view model =
                          ; button
                              [ onClick New_game ]
                              [ text "new game" ]
+                         ; button
+                             [ onClick Save_games ]
+                             [ text "save games" ]
+                         ; button
+                             [ onClick Clear_games ]
+                             [ text "clear storage" ]
                          ]
                  ]
         ; div [ class' "scroll" ]

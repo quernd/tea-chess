@@ -47,17 +47,14 @@ let game_of_pgn string =
     let san = Chess.san_of_move position move in
     Chess.make_move' position move,
     Zipper.fwd' (simple_move move san) moves in
-
-  match Pgn.parse_pgn string with
-  | Some pgn_game ->
-    begin try
-        let header = pgn_game.header and result = pgn_game.result in
-        let position, moves = List.fold_left make_pgn_move
-            (Chess.init_position, Zipper.init) pgn_game.moves in
-        Some { position; moves; header; result }
-      with Chess.Illegal_move -> None
-    end
-  | None -> None
+  try match Pgn.parse_pgn string with
+    | Some pgn_game ->
+      let header = pgn_game.header and result = pgn_game.result in
+      let position, moves = List.fold_left make_pgn_move
+          (Chess.init_position, Zipper.init) pgn_game.moves in
+      Some { position; moves; header; result }
+    | None -> None
+  with _ -> None
 
 
 let jump model how_many =
@@ -183,3 +180,13 @@ let view model =
     ]
 
 
+let pgn_of_game model =
+  let past, future = model.moves in
+  let sans = List.rev_append past future
+             |> List.map (fun move -> move.san) in
+  let header =
+    List.map (fun (k, v) -> Printf.sprintf "[%s \"%s\"]" k v) model.header
+    |> String.concat "\n" in
+  header ^ "\n\n" ^
+  String.concat " " sans ^ " " ^
+  (string_of_result model.result)
