@@ -4,7 +4,7 @@ type msg =
   | Load_tournament
   | Tournament_data of (string, string Http.error) Result.t
   | Load_game of string
-  | Game_data of (string, string Http.error) Result.t
+  | Game_data of string * (string, string Http.error) Result.t
 [@@bs.deriving {accessors}]
 
 type 'a transfer =
@@ -50,7 +50,7 @@ let update model = function
       | Error _ -> Failed
     end, Cmd.none
   | Load_game game_id ->
-    model, get_game game_data game_id
+    model, get_game (game_data game_id) game_id
   | Game_data _ -> model, Cmd.none
 
 

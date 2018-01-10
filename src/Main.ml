@@ -11,6 +11,7 @@ type model =
   ; selected : int
   ; board : Board.model
   ; lichess : Lichess.model
+  ; lichess_games : Game.model StringMap.t
   }
 
 type msg =
@@ -38,6 +39,7 @@ let init () =
   ; selected = 1
   ; board = Board.init
   ; lichess = Lichess.init
+  ; lichess_games = StringMap.empty
   }, Cmd.none
 
 
@@ -59,13 +61,22 @@ let update model = function
   | Game_msg msg ->
     let game, cmd = Game.update (model |. model.game) msg in
     model |> model.game ^= game, Cmd.map game_msg cmd
-  | Lichess_msg (Game_data (Error _)) ->
-    alert "Game could not be loaded!";
+  | Lichess_msg (Load_game id) ->
+    begin try let game = StringMap.find id model.lichess_games in
+        add_game_update_lens game model, Cmd.none
+      with Not_found ->
+        let lichess, cmd = Lichess.update model.lichess (Load_game id) in
+        { model with lichess }, Cmd.map lichess_msg cmd
+    end
+  | Lichess_msg (Game_data (game_id, Error _)) ->
+    Printf.sprintf "Game %s could not be loaded!" game_id |> alert;
     model, Cmd.none
-  | Lichess_msg (Game_data (Ok data)) ->
+  | Lichess_msg (Game_data (game_id, Ok data)) ->
     begin match Game.game_of_pgn data with
       | Some game ->
-        add_game_update_lens game model, Cmd.none
+        let lichess_games = StringMap.add game_id game model.lichess_games in
+        { model with lichess_games }
+        |> add_game_update_lens game, Cmd.none
       | None -> alert "Game could not be parsed!";
         model, Cmd.none
     end
