@@ -5,6 +5,30 @@ cb-board, cb-promo {
     width: 480px;
     height: 480px;
 }
+@media screen and (max-width:832px) {
+    cb-board, cb-promo {
+        width: 400px;
+        height: 400px;
+    }
+}
+@media screen and (max-width:740px) {
+    cb-board, cb-promo {
+        width: 352px;
+        height: 352px;
+    }
+}
+@media screen and (max-height:740px) {
+    cb-board, cb-promo {
+        width: 352px;
+        height: 352px;
+    }
+}
+@media screen and (max-width:320px) {
+    cb-board, cb-promo {
+        width: 304px;
+        height: 304px;
+    }
+}
 
 cb-row:after {
     display: block;

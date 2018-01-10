@@ -2,3 +2,61 @@ table tr:nth-of-type(even) {
     background-color: #e0e0e0;
 }
 
+html, body {
+    height: 100%;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    font-size: 100%;
+}
+
+main {
+    display: flex;
+    height: 100%;
+    flex-direction: row;
+}
+
+#board {
+    text-align: center;
+}
+
+#game {
+    overflow-y: hidden;
+    flex: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+nav#main-nav {
+    text-align: left;
+    overflow-x: scroll;
+}
+
+nav ul {
+    padding-left: 0;
+}
+
+nav ul li a {
+    text-decoration: none;
+}
+
+nav ul li {
+    display: inline;
+    padding-left: 1em;
+    padding-right: 1em;
+}
+
+li.home {
+    font-weight: bold;
+}
+
+.scroll {
+    overflow-y: scroll;
+    flex: auto;
+    padding: .5em;
+}
+
+@media screen and (max-width:648px) and (min-height:480px) {
+    main {
+        flex-direction: column;
+    }
+}
