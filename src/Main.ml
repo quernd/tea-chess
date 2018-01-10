@@ -6,7 +6,7 @@ open Lens
 open Infix
 
 type model =
-  { games : Game.model list
+  { games : Game.model IntMap.t
   ; game : (model, Game.model) Lens.t
   ; selected : int
   ; board : Board.model
@@ -33,12 +33,21 @@ let games_lens =
   }
 
 let init () =
-  { games = [Game.init]
-  ; game = games_lens |-- Lens.for_list 0
-  ; selected = 0
+  { games = IntMap.empty |> IntMap.add 1 Game.init
+  ; game = games_lens |-- IntMapLens.for_key 1
+  ; selected = 1
   ; board = Board.init
   ; lichess = Lichess.init
   }, Cmd.none
+
+
+let add_game_update_lens game model =
+  let key = (IntMap.max_binding model.games |> fst) + 1 in
+  let games = IntMap.add key game model.games in
+  { model with games
+             ; selected = key
+             ; game = games_lens |-- IntMapLens.for_key key
+  }
 
 
 let update model = function
@@ -55,9 +64,8 @@ let update model = function
     model, Cmd.none
   | Lichess_msg (Game_data (Ok data)) ->
     begin match Game.game_of_pgn data with
-      | Some game -> { model with games = game::model.games
-                                ; game = games_lens |-- Lens.for_list 0
-                     }, Cmd.none
+      | Some game ->
+        add_game_update_lens game model, Cmd.none
       | None -> alert "Game could not be parsed!";
         model, Cmd.none
     end
@@ -90,10 +98,9 @@ let update model = function
   | Reset_game ->
     model |> model.game ^= Game.init, Cmd.none
   | New_game ->
-    { model with games = Game.init::model.games
-               ; game = games_lens |-- Lens.for_list 0 }, Cmd.none
+    add_game_update_lens Game.init model, Cmd.none
   | Switch_game i ->
-    { model with game = games_lens |-- Lens.for_list i }, Cmd.none
+    { model with game = games_lens |-- IntMapLens.for_key i }, Cmd.none
 
 
 let header_nav_view =
@@ -112,13 +119,12 @@ let header_nav_view =
 
 let games_picker selected games =
   let open Html in
-  let length = List.length games in
-  List.mapi
-    (fun i _game ->
-       option' [ string_of_int i |> value
-               ; Attributes.selected (selected = i) ]
-         [ Printf.sprintf "Game %d" (length - i) |> text ]
-    ) games
+  let option_view k _v acc =
+    option' [ string_of_int k |> value
+            ; Attributes.selected (selected = k) ]
+      [ Printf.sprintf "Game %d" k |> text ]::acc in
+
+  IntMap.fold option_view games []
   |> List.rev
   |> select [ int_of_string >> switch_game |> onChange ]
 
