@@ -26,3 +26,8 @@ end
 
 module IntMapLens = MapLens(IntT)
 module StringMapLens = MapLens(StringT)
+
+
+let button' msg description =
+  let open Tea.Html in
+  button [ onClick msg ] [ text description ]

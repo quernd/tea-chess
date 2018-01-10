@@ -46,11 +46,6 @@ external stockfish_loader :
   (string -> msg) -> Stockfish.stockfish Js.nullable =
   "stockfish_loader" [@@bs.val]
 
-let stockfish_move position =
-  position
-  |> Stockfish.make_move
-  |> stockfish_msg
-
 
 let games_lens =
   { get = (fun r -> r.games)
@@ -115,7 +110,16 @@ let init () location =
 
 let update model = function
   | Board_msg (Move move) | Random_move move ->
-    model, Game_msg (Move move) |> Cmd.msg
+    let game, cmd = Game.update (model |. model.game) (Game.Move move) in
+    let autoplay_cmd = match model.stockfish with
+      | Some stockfish when stockfish.autoplay ->
+        game.position
+        |> Chess.FEN.fen_of_position
+        |> Stockfish.make_move
+        |> stockfish_msg
+        |> Cmd.msg
+      | _ -> Cmd.none in
+    model |> model.game ^= game, Cmd.batch [Cmd.map game_msg cmd; autoplay_cmd]
   | Board_msg msg ->
     let board, cmd = Board.update model.board msg in
     { model with board }, Cmd.map board_msg cmd
@@ -249,6 +253,8 @@ let games_picker model =
   |> select [ int_of_string >> switch_game |> onChange ]
 
 
+
+
 let view model =
   let open! Html in
   let game = model |. model.game in
@@ -261,23 +267,14 @@ let view model =
 
   let stockfish_view =
     match model.stockfish with
-    | None -> p [] [ button
-                       [ onClick Load_stockfish ]
-                       [ "load Stockfish" |> text ]
-                   ]
+    | None -> p [] [ button' Load_stockfish "load Stockfish" ]
     | Some stockfish ->
-      p [] [ match stockfish.status with
-          | Idle ->
-            begin match interactable with
-              | Board.Not_interactable -> Game.status_view position
-              | _ -> button
-                       [ game.position |> Chess.FEN.fen_of_position
-                         |> stockfish_move |> onClick ]
-                       [ text "move, computer!" ]
-            end
-          | Loading -> text "loading Stockfish"
-          | Thinking -> text "Stockfish is thinking"
-        ] in
+      match stockfish.status, interactable with
+      | Idle, Not_interactable -> Game.status_view position
+      | _ -> game.position
+             |> Chess.FEN.fen_of_position
+             |> Stockfish.view stockfish
+             |> map stockfish_msg in
 
   main []
     [ section [ id "board" ]
@@ -285,30 +282,19 @@ let view model =
         ; Board.view interactable position.ar model.board
           |> map board_msg
         ; p [] [ map board_msg Board.flip_button_view
-               ; button
-                   [ onClick Random_button ]
-                   [ text "Random move!" ]
-               ; button
-                   [ onClick (Game_msg Take_back) ]
-                   [ text "Take back" ]
+               ; button' Random_button "Random move!"
+               ; button' (Game_msg Take_back) "Take back"
                ]
         ; stockfish_view
         ]
     ; section [ id "game" ]
         [ nav [] [ ul [] [ li []
-                             [ games_picker model ]
-                         ; button
-                             [ onClick Reset_game ]
-                             [ text "reset game" ]
-                         ; button
-                             [ onClick New_game ]
-                             [ text "new game" ]
-                         ; button
-                             [ onClick Save_games ]
-                             [ text "save games" ]
-                         ; button
-                             [ onClick Clear_games ]
-                             [ text "clear storage" ]
+                             [ games_picker model
+                             ; button' Reset_game "reset game"
+                             ; button' New_game "new game"
+                             ; button' Save_games "save games"
+                             ; button' Clear_games "clear storage"
+                             ]
                          ]
                  ]
         ; div [ class' "scroll" ]
