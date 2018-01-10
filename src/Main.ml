@@ -70,6 +70,23 @@ let update model = function
     end
 
 
+
+
+
+let header_nav_view =
+  let open Html in
+  let link ?(home=false) link description =
+    li [ if home then class' "home" else noProp ]
+      [ a [ href link ] [ text description ] ] in
+
+  nav [ id "main-nav" ]
+    [ ul [] [ link ~home:true "#/" "TEA-Chess"
+            ; link "https://quernd.github.io/tutorials/tea-chess" "Tutorial"
+            ; link "https://github.com/quernd/tea-chess" "Code"
+            ]
+    ]
+
+
 let view model =
   let open Html in
   let interactable =
@@ -77,18 +94,27 @@ let view model =
     | Play move_list ->
       Board.Interactable (model.game.position.turn, move_list)
     | _ -> Board.Not_interactable in
-  div []
-    [ Board.view interactable model.game.position.ar model.board |> map board_msg
-    ; p [] [ map board_msg Board.flip_button_view
-           ; button
-               [ onClick Random_button ]
-               [ text "Make a random move!" ]
-           ; button
-               [ onClick (Game_msg Take_back) ]
-               [ text "Take back" ]
-           ]
-    ; Game.view model.game |> map game_msg
-    ; Lichess.view model.lichess |> map lichess_msg
+  main []
+    [ section [ id "board" ]
+        [ header_nav_view
+        ; Board.view interactable model.game.position.ar model.board
+          |> map board_msg
+        ; Game.status_view model.game.position
+        ; p [] [ map board_msg Board.flip_button_view
+               ; button
+                   [ onClick Random_button ]
+                   [ text "Random move!" ]
+               ; button
+                   [ onClick (Game_msg Take_back) ]
+                   [ text "Take back" ]
+               ]
+        ]
+    ; section [ id "game" ]
+        [ div [ class' "scroll" ]
+            [ Game.view model.game |> map game_msg
+            ; Lichess.view model.lichess |> map lichess_msg
+            ]
+        ]
     ]
 
 

@@ -147,9 +147,6 @@ let status_view position =
 
 let view model =
   let open Html in
-  div []
-    [ status_view model.position
-    ; move_list_view model.position.number model.moves
-    ]
+  move_list_view model.position.number model.moves
 
 
