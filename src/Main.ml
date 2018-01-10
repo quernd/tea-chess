@@ -4,11 +4,13 @@ open App
 type model =
   { game : Game.model
   ; board : Board.model
+  ; lichess : Lichess.model
   }
 
 type msg =
   | Board_msg of Board.msg
   | Game_msg of Game.msg
+  | Lichess_msg of Lichess.msg
   | Random_button
   | Random_move of Chess.move
   | Key_pressed of Keyboard.key_event
@@ -18,6 +20,7 @@ type msg =
 let init () =
   { game = Game.init
   ; board = Board.init
+  ; lichess = Lichess.init
   }, Cmd.none
 
 
@@ -30,6 +33,9 @@ let update model = function
   | Game_msg msg ->
     let game, cmd = Game.update model.game msg in
     { model with game }, Cmd.map game_msg cmd
+  | Lichess_msg msg ->
+    let lichess, cmd = Lichess.update model.lichess msg in
+    { model with lichess }, Cmd.map lichess_msg cmd
   | Random_button ->
     model,
     begin match Chess.game_status model.game.position with
@@ -72,6 +78,7 @@ let view model =
                [ text "Take back" ]
            ]
     ; Game.view model.game |> map game_msg
+    ; Lichess.view model.lichess |> map lichess_msg
     ]
 
 

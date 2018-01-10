@@ -115,7 +115,6 @@ let move_list_view ply (past, future) =
 
 let status_view position =
   let open Html in
-
   p []
     [ begin match Chess.game_status position with
         | Chess.Win Black -> "Black wins by checkmate!"
