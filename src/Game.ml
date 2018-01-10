@@ -10,6 +10,8 @@ type move =
 type model =
   { position : Chess.position
   ; moves : move Zipper.zipper
+  ; header : (string * string) list
+  ; result : Pgn.result
   }
 
 type msg =
@@ -22,6 +24,8 @@ type msg =
 let init =
   { position = Chess.init_position
   ; moves = Zipper.init
+  ; header = []
+  ; result = None
   }
 
 
@@ -31,17 +35,26 @@ let simple_move move san =
   }
 
 
+let string_of_result = function
+  | Some (Chess.Win White) -> "1-0"
+  | Some (Chess.Win Black) -> "0-1"
+  | Some Chess.Draw -> "1/2-1/2"
+  | _ -> "*"
+
 let game_of_pgn string =
-  let make_pgn_move model pgn_move =
-    let move = Pgn.move_of_pgn_move model.position pgn_move in
-    let san = Chess.san_of_move model.position move in
-    let position = Chess.make_move' model.position move in
-    let moves = Zipper.fwd' (simple_move move san) model.moves in
-    { position; moves } in
+  let make_pgn_move (position, moves) pgn_move =
+    let move = Pgn.move_of_pgn_move position pgn_move in
+    let san = Chess.san_of_move position move in
+    Chess.make_move' position move,
+    Zipper.fwd' (simple_move move san) moves in
 
   match Pgn.parse_pgn string with
   | Some pgn_game ->
-    begin try Some (List.fold_left make_pgn_move init pgn_game.moves)
+    begin try
+        let header = pgn_game.header and result = pgn_game.result in
+        let position, moves = List.fold_left make_pgn_move
+            (Chess.init_position, Zipper.init) pgn_game.moves in
+        Some { position; moves; header; result }
       with Chess.Illegal_move -> None
     end
   | None -> None
@@ -145,8 +158,28 @@ let status_view position =
     ]
 
 
+let header_view pgn_header =
+  let open Html in
+  let key_value_view (k, v) =
+    li [] [ label [] [ [ text k ] |> span [] ]
+          ; span [] [ text v ]
+          ] in
+  List.filter 
+    (fun (k, _) -> k = "White" || k = "Black") pgn_header
+  |> List.map key_value_view
+  |> ul [class' "pgnheader"]
+
+let result_view result =
+  let open Html in
+  p [ class' "result"]
+    [ string_of_result result |> text ]
+
 let view model =
   let open Html in
-  move_list_view model.position.number model.moves
+  div [ class' "pgn" ]
+    [ header_view model.header
+    ; move_list_view model.position.number model.moves
+    ; result_view model.result
+    ]
 
 

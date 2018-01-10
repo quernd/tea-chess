@@ -70,9 +70,6 @@ let update model = function
     end
 
 
-
-
-
 let header_nav_view =
   let open Html in
   let link ?(home=false) link description =
