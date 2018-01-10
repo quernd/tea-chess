@@ -60,7 +60,7 @@ let view model =
                [ onClick (Game_msg Take_back) ]
                [ text "Take back" ]
            ]
-    ; Game.view model.game
+    ; Game.view model.game |> map game_msg
     ]
 
 

@@ -24,3 +24,10 @@ li.move.black > span.number:after {
 li.move.white > span.number {
     display: inline;
 }
+
+li.move.highlight > span.move {
+  background: #ff0;
+}
+span.move {
+  cursor: pointer;
+}
