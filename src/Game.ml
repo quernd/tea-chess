@@ -32,9 +32,10 @@ let simple_move move san =
 let update model = function
   | Move move ->
     begin try
+        let san = Chess.san_of_move model.position move in
         let position = Chess.make_move model.position move 0 in
         { model with position
-                   ; moves = simple_move move "splendid move" :: model.moves
+                   ; moves = simple_move move san :: model.moves
         }, Cmd.none
       with Chess.Illegal_move -> model, Cmd.none
     end
