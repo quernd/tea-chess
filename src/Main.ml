@@ -11,6 +11,7 @@ type msg =
   | Game_msg of Game.msg
   | Random_button
   | Random_move of Chess.move
+  | Key_pressed of Keyboard.key_event
 [@@bs.deriving {accessors}]
 
 
@@ -41,6 +42,16 @@ let update model = function
              List.nth move_list random_number |> random_move)
       | _ -> Cmd.none
     end
+  | Key_pressed key_event ->
+    model,
+    begin match key_event.ctrl, key_event.key_code with
+      | _, 37 (* left *) | true, 66 (* Ctrl-b *) ->
+        Cmd.msg (Game_msg Take_back)
+      | _, 39 (* right *) | true, 70 (* Ctrl-f *) ->
+        Cmd.msg (Game_msg Forward)
+      | true, 82 (* Ctrl-r *) -> Cmd.msg Random_button
+      | _ -> Cmd.none
+    end
 
 
 let view model =
@@ -65,7 +76,9 @@ let view model =
 
 
 let subscriptions model =
-  Board.subscriptions model.board |> Sub.map board_msg
+  [ Board.subscriptions model.board |> Sub.map board_msg
+  ; Keyboard.downs key_pressed
+  ] |> Sub.batch
 
 let main =
   standardProgram

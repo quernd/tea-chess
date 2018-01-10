@@ -15,6 +15,7 @@ type model =
 type msg =
   | Move of Chess.move
   | Take_back
+  | Forward
   | Jump of int
 [@@bs.deriving {accessors}]    
 
@@ -30,6 +31,27 @@ let simple_move move san =
   }
 
 
+let jump model how_many =
+
+  let rec jump_fwd position zipper n =
+    if n <= 0 then position, zipper
+    else let move, zipper' = Zipper.fwd zipper in
+      jump_fwd (Chess.make_move' position move.move) zipper' (n - 1) in
+  let rec jump_back (position:Chess.position) zipper n =
+    match position.prev, n with
+    | Some position', n when n < 0 ->
+      jump_back position' (Zipper.back zipper) (n + 1)
+    | _ -> position, zipper in
+
+  try match how_many with
+    | 0 -> model
+    | n -> let position, moves =
+             if n > 0 then jump_fwd model.position model.moves n
+             else jump_back model.position model.moves n in
+      { model with position; moves }
+  with _ -> model
+
+
 let update model = function
   | Move move ->
     begin try
@@ -40,33 +62,9 @@ let update model = function
         }, Cmd.none
       with Chess.Illegal_move -> model, Cmd.none
     end
-  | Take_back ->
-    begin match model.position.prev with
-      | Some position ->
-        begin try let moves = Zipper.back model.moves in
-            { model with position; moves }, Cmd.none
-          with Zipper.Beginning_of_list -> model, Cmd.none
-        end
-      | _ -> model, Cmd.none
-    end
-  | Jump how_many ->
-    let rec jump_fwd position zipper n =
-      if n <= 0 then position, zipper
-      else let move, zipper' = Zipper.fwd zipper in
-        jump_fwd (Chess.make_move' position move.move) zipper' (n - 1) in
-    let rec jump_back (position:Chess.position) zipper n =
-      match position.prev, n with
-      | Some position', n when n < 0 ->
-        jump_back position' (Zipper.back zipper) (n + 1)
-      | _ -> position, zipper in
-    begin try match how_many with
-      | 0 -> model, Cmd.none
-      | n -> let position, moves =
-               if n > 0 then jump_fwd model.position model.moves n
-               else jump_back model.position model.moves n in
-        { model with position; moves }, Cmd.none
-      with _ -> model, Cmd.none
-    end
+  | Take_back -> jump model (-1), Cmd.none
+  | Forward -> jump model 1, Cmd.none
+  | Jump how_many -> jump model how_many, Cmd.none
 
 
 let move_list_view ply (past, future) =
@@ -126,3 +124,5 @@ let view model =
            ]
     ; move_list_view model.position.number model.moves
     ]
+
+
