@@ -11,7 +11,8 @@
   "suffix": ".bs.js",
   "bs-dependencies": [
     "bucklescript-tea",
-    "ochess"
+    "ochess",
+    "opal"
   ],
   "bsc-flags": [ 
     "-bs-super-errors",
