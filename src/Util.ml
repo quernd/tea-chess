@@ -49,7 +49,7 @@ module Option = struct
     | Some v -> f v
 
   let get = function
-    | None -> raise (Invalid_argument "None")
+    | None -> raise (Invalid_argument "Option.get")
     | Some v -> v
 
 end
