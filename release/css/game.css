@@ -32,6 +32,71 @@ span.move {
     cursor: pointer;
 }
 
+li.move.white > span.number:after {
+  content: ".\00a0";
+}
+li.move.black > span.number:after {
+    content: "...\00a0";
+}
+li.move.home + li.move > span.number,
+li.move.white > span.number,
+ul.moves > li:first-child > span.number,
+li.move.variations + li.move > span.number {
+    display: inline;
+}
+
+span.comment {
+  color: #008000;
+}
+
+
+ul.moves {
+    margin: .25em;
+    padding: .25em;
+    list-style-type: none;
+    background: #ffffff;
+}
+ol.variations {
+    list-style-type: upper-latin;
+    padding-left: 20px;
+}
+ol.variations ul.moves {
+    background: #f0f0f0;
+}
+ol.variations ol.variations {
+    list-style-type: upper-roman;
+    font-size: small;
+}
+ol.variations ol.variations ul.moves {
+    background: #ffffff;
+}
+ol.variations ol.variations ol.variations {
+    list-style-type: lower-latin;
+}
+ol.variations ol.variations ol.variations ul.moves {
+    background: #f0f0f0;
+}
+ol.variations ol.variations ol.variations ol.variations {
+    list-style-type: lower-roman;
+    font-size: x-small;
+}
+ol.variations ol.variations ol.variations ol.variations ul.moves {
+    background: #ffffff;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations {
+    list-style-type: lower-greek;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations ul.moves {
+    background: #f0f0f0;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations ol.variations {
+    list-style-type: circle;
+    font-size: xx-small;
+}
+ol.variations ol.variations ol.variations ol.variations ol.variations ol.variations ul.moves {
+    background: #ffffff;
+}
+
 ul.pgnheader {
     list-style-type: none;
 }
