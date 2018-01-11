@@ -80,7 +80,8 @@ let update_route model = function
   | Game id as route when IntMap.mem id model.games ->
     let game = games_lens |-- IntMapLens.for_key id in
     { model with route; game }, Cmd.none
-  | Game _ -> { model with route = Game 1 }, Cmd.none
+  | Game _ -> { model with route = Game 1 },
+              location_of_route (Game 1) |> Navigation.modifyUrl
   | Tournament ->
     { model with route = Tournament }, Cmd.msg (Lichess_msg Load_tournament)
   | Lichess game_id ->
