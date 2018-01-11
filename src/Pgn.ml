@@ -26,13 +26,20 @@ type rank = Chess.rank
 
 type square = file * rank
 
-type move =
+type token_move =
   | Queenside_castle
   | Kingside_castle
   | Piece_move of piece_type * file option * rank option * square 
   | Pawn_move of file option * square * promotion option
 
 type line = move list
+and move =
+  { move : token_move
+  ; pre_comments : comment list
+  ; post_comments : comment list
+  ; nags : nag list
+  ; rav : line list
+  }
 
 type game =
   { header : header
@@ -131,12 +138,12 @@ let rec var () =
 (* comments can be sequential *)
 (* TODO: semicolon until end-of-line comment *)
 and move () =
-  many (lexeme comment) >>
+  many (lexeme comment) >>= fun pre_comments ->
   maybe (lexeme number) >> lexeme san >>= fun move ->
-  many (lexeme nag) >>
-  many (lexeme comment) >>
-  many (lexeme (var ())) >>
-  return move
+  many (lexeme nag) >>= fun nags ->
+  many (lexeme comment) >>= fun post_comments ->
+  many (lexeme (var ())) >>= fun rav ->
+  return { pre_comments; move; nags; post_comments; rav }
 
 and line () =
   sep_by (move ()) space

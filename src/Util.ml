@@ -31,3 +31,25 @@ module StringMapLens = MapLens(StringT)
 let button' msg description =
   let open Tea.Html in
   button [ onClick msg ] [ text description ]
+
+
+module Option = struct
+  type 'a t = 'a option
+
+  let map f = function
+    | None -> None
+    | Some v -> Some (f v)
+
+  let default x = function
+    | None -> x
+    | Some v -> v
+
+  let default_map f x = function
+    | None -> x
+    | Some v -> f v
+
+  let get = function
+    | None -> raise (Invalid_argument "None")
+    | Some v -> v
+
+end

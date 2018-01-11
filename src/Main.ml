@@ -205,7 +205,7 @@ let update model = function
   | Stockfish_msg (Move move) ->
     begin try
         let move' = Pgn.move_of_pgn_move
-            ((model |. model.game).position) move in
+            ((model |. model.game).position) move.move in
         let game, cmd =
           Game.update (model |. model.game) (Game.Move move') in
         model |> model.game ^= game, Cmd.map game_msg cmd
