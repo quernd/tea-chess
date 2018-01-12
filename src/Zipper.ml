@@ -47,7 +47,6 @@ and 'a line_context =
 
 type 'a tree_zipper = 'a tree_context * 'a line
 
-type action = Fwd | Back | Down | Next | Prev | Up
 
 exception No_variations
 exception No_next_variation

@@ -65,13 +65,13 @@ let update model = function
   | Ready -> model, Cmd.none
 
 
-let view model fen =
+let view model position =
   let open Html in
   let open Util in
   p []
     [ begin match model.status with
         | Idle -> button
-                    [ Make_move fen |> onClick ]
+                    [ Make_move position |> onClick ]
                     [ text "move, computer!" ]
         | Loading -> text "loading Stockfish"
         | Thinking -> text "Stockfish is thinking" end
@@ -85,7 +85,7 @@ let view model fen =
              ; type' "number"
              ; style "width" "3em"
              ; style "margin-left" "1em"
-             ; onChange (int_of_string >> set_depth)
+             ; int_of_string >>> set_depth |> onChange
              ; value (string_of_int model.depth)
              ; Attributes.min "1"
              ; Attributes.max "24"

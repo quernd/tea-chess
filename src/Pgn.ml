@@ -1,6 +1,6 @@
 open Opal
 
-let maybe p = option None (p >>= fun x -> return (Some x))
+let maybe p = (p >>= fun x -> return (Some x)) <|> return None
 
 exception Ambiguous_move
 exception Parse_error

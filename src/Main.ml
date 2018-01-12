@@ -34,7 +34,8 @@ type msg =
   | Location_changed of Web.Location.location
   | Save_games
   | Clear_games
-  | Games_loaded of Web.Location.location * (Game.model IntMap.t, string) Result.t
+  | Games_loaded of
+      Web.Location.location * (Game.model IntMap.t, string) Result.t
   | Games_saved of (unit list, string) Result.t
   | Load_stockfish
   | Stockfish_msg of Stockfish.msg
@@ -112,8 +113,9 @@ let init () location =
 let update model = function
   | Board_msg (Move move) | Random_move move ->
     let game, cmd = Game.update (model |. model.game) (Game.Move move) in
-    let autoplay_cmd = match model.stockfish with
-      | Some stockfish when stockfish.autoplay ->
+    let autoplay_cmd =
+      match model.stockfish, Chess.game_status game.position with
+      | Some stockfish, Play _ when stockfish.autoplay ->
         game.position
         |> Chess.FEN.fen_of_position
         |> Stockfish.make_move
@@ -251,7 +253,7 @@ let games_picker model =
   option' [ value "0"
           ; Attributes.selected (model.route = Tournament) ]
     [ text "Tournament" ]::options
-  |> select [ int_of_string >> switch_game |> onChange ]
+  |> select [ int_of_string >>> switch_game |> onChange ]
 
 
 

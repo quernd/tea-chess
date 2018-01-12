@@ -58,8 +58,7 @@ type msg =
 
 let cartesian_decoder field_x field_y =
   let open Json.Decoder in
-  let open Mouse in
-  map2 (fun x y -> {x; y})
+  map2 (fun x y -> ({x; y}:Mouse.position))
     (field field_x int)
     (field field_y int)
 
@@ -107,7 +106,7 @@ let update model = function
                        Dragging { drag with target = Some square }
         }, Cmd.none
       | Square_left _, Dragging drag ->
-        { model with state = Dragging {drag with target = None} }, Cmd.none
+        { model with state = Dragging {drag with target = None } }, Cmd.none
       | Move_drop _, Dragging drag ->
         begin match drag.target with
           | Some target ->

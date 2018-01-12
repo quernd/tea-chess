@@ -112,7 +112,8 @@ let fun_of_action = function
   | Up -> game_up
 
 let fun_of_actions actions =
-  List.fold_left (fun acc a -> acc << (fun_of_action a)) id actions
+  List.fold_left (fun acc a -> acc <<< (fun_of_action a)) id actions
+
 
 let string_of_action = function
   | Fwd -> "f"
@@ -124,7 +125,6 @@ let string_of_action = function
 
 let string_of_actions actions =
   List.fold_left (fun acc a -> string_of_action a ^ acc) "" actions
-
 
 let simple_move move san =
   { move = move
