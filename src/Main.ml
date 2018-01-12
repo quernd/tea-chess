@@ -61,13 +61,12 @@ let add_game_update_lens game model =
   }, key
 
 
-let route_of_location (location:Web.Location.location) =
-  let route = Js.String.split "/" location.hash |> Array.to_list in
-  match route with
-  | ["#"; ""] -> Game 1
-  | ["#"; "tournament"] -> Tournament
-  | ["#"; "game"; id] -> Game (int_of_string id)
-  | ["#"; "lichess"; id] -> Lichess id
+let route_of_location location =
+  match Js.String.split "/" location.Web.Location.hash with
+  | [|"#"; ""|] -> Game 1
+  | [|"#"; "tournament"|] -> Tournament
+  | [|"#"; "game"; id|] -> Game (int_of_string id)
+  | [|"#"; "lichess"; id|] -> Lichess id
   | _ -> Game 1  (* default route *)
 
 let location_of_route = function

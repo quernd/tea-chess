@@ -150,8 +150,7 @@ and line () =
 
 (* nonstandard 1/2 *)
 let result =
-  let open Chess in
-  (token "1-0" >> return (Some (Win White))) <|>
+  (token "1-0" >> return (Some (Chess.Win White))) <|>
   (token "1/2-1/2" >> return (Some Draw)) <|>
   (token "1/2" >> return (Some Draw)) <|>
   (token "0-1" >> return (Some (Win Black))) <|>

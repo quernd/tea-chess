@@ -58,7 +58,7 @@ type msg =
 
 let cartesian_decoder field_x field_y =
   let open Json.Decoder in
-  map2 (fun x y -> ({x; y}:Mouse.position))
+  map2 (fun x y -> Mouse.{x; y})
     (field field_x int)
     (field field_y int)
 
@@ -77,11 +77,9 @@ let offset_page_size =
   |> decodeEvent
 
 let handler decoder msg event =
-  let open Result in
-  let result = decoder event in
-  match result with
-  | Ok result -> Some (msg result)
-  | Error _ -> None
+  match decoder event with
+  | Result.Ok result -> Some (msg result)
+  | Result.Error _ -> None
 
 
 let init =
