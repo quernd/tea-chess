@@ -1,32 +1,52 @@
 #+TITLE: Chess in Bucklescript-TEA
-#+HTML_DOCTYPE: html5
 #+OPTIONS: ':t ^:{} toc:nil
 
 #+BEGIN_EXPORT html
 <div style="display:flex;justify-content:center;align-items:center;margin:.5em auto .5em auto"><img src="/img/Octocat.jpg" width="50" height="42"
-alt="Octocat" /> <a href="https://github.com/quernd/tea-chess">Code for this tutorial</a></div>
+alt="Octocat" /> <a href="https://github.com/quernd/tea-chess">Code for this tutorial</a> &mdash; <a href="demo.html">Demo</a></div>
 #+END_EXPORT
 
-This is [[../index.org][a chess-themed tutorial]] on writing an SPA in
+This is a chess-themed tutorial on writing an SPA in
 [[https://github.com/OvermindDL1/bucklescript-tea][Bucklescript-TEA]].  You will develop an app that looks like [[./demo.html][this demo]],
-from scratch.  This tutorial was written in January 2018.  Send
+from scratch. 
+
+This tutorial was written in January 2018.  Send
 comments [[mailto:daniel-2018@eu.avior.uberspace.de][by e-mail]].
 
-| Part I    | [[#part-i][First steps with Bucklescript]]         | bsb, Tea.Html, Tea.App        |
-| Part II   | [[#part-ii][A static chessboard]]                   | Merlin, NPM/Yarn              |
-| Part III  | [[#part-iii][A drag and drop chessboard]]            | Tea.Sub, Tea.Json, Tea.Mouse  |
-| Part IV   | [[#part-iv][Moving in the move list]]               | list zippers, keyboard events |
-| Part V    | [[#part-v][AJAX, parsing and responsive CSS]]      | Tea.Http, parser combinators  |
-| Part VI   | [[#part-vi][Lenses, maps, and functors]]            | Lens, Map, functors           |
-| Part VII  | [[#part-vii][Routing, local storage and JS interop]] | Tea.Navigation, Tea.Ex        |
-| Part VIII | [[#part-viii][A move tree]]                           | tree zippers                  |
+| Part I    | [[#part-i][First steps with Bucklescript-TEA]]     | bsb, Tea, Tea.Html, Tea.App      |
+| Part II   | [[#part-ii][A chessboard with random moves]]        | Tea.Cmd, Tea.Random, composition |
+| Part III  | [[#part-iii][A drag and drop chessboard]]            | Tea.Sub, Tea.Json, Tea.Mouse     |
+| Part IV   | [[#part-iv][Moving in the move list]]               | list zippers, keyboard events    |
+| Part V    | [[#part-v][AJAX, parsing and responsive CSS]]      | Tea.Http, parser combinators     |
+| Part VI   | [[#part-vi][Lenses, maps, and functors]]            | Lens, Map.Make, functors         |
+| Part VII  | [[#part-vii][Routing, local storage and JS interop]] | Tea.Navigation, Tea.Ex           |
+| Part VIII | [[#part-viii][A move tree]]                           | tree zippers, recursive views    |
 
 #+TOC: headlines 2
 
-* Part I: First steps with Bucklescript
+* Part I: First steps with Bucklescript-TEA
    :PROPERTIES:
    :CUSTOM_ID: part-i
    :END:
+
+I recently started frontend web development in [[https://ocaml.org/][OCaml]] by using
+[[https://bucklescript.github.io/][Bucklescript]] to compile my code into Javascript. Naturally, a
+functional language like OCaml goes well together with the famous [[https://guide.elm-lang.org/architecture/][Elm
+architecture]], so I chose to explore the recent [[https://github.com/OvermindDL1/bucklescript-tea][Bucklescript-TEA]]
+library. (TEA stands for "The Elm Architecture", obviously.)
+
+OCaml and Bucklescript have recently gained a lot of attention, not
+least because of Facebook's [[https://reasonml.github.io/][Reason]] -- an alternative, more
+Javascript-like syntax for OCaml. I prefer the traditional OCaml
+syntax, but you can use either syntax together with Bucklescript.
+
+In this tutorial, I will walk you through
+an entire example of a single-page application. It
+will certainly help if you have a little experience with chess, web
+development and in particular functional programming in general or OCaml in
+particular, but it is no prerequisite, you can pick up everything you
+need on the way.
+
 
 ** Getting started
 
@@ -469,7 +489,7 @@ created release/main.js in 2.1s
 Whenever something breaks, it will display the error and keep
 recompiling until you get it right :-)
 
-* Part II: A static chessboard
+* Part II: A chessboard with random moves
    :PROPERTIES:
    :CUSTOM_ID: part-ii
    :END:
@@ -482,9 +502,9 @@ you the type of the function name at the point (cursor). Press
 @@html:<kbd>C-c C-l</kbd>@@, and it will take you to the definition of
 the function.)
 
-- ~update~ is of type ~model -> msg -> model~, meaning it takes a model
-and a message from the variant type ~msg~, and
-  returns a new model.
+- ~update~ is of type ~model -> msg -> model~, meaning it takes a
+  model and a message from the variant type ~msg~, and returns a new
+  model.
 - ~view~ has type ~model -> msg Vdom.t~.  This means it takes a model
   and returns a virtual DOM element that can trigger messages of type
   ~msg~. We say that ~msg Vdom.t~ is a /parameterized type/.
@@ -951,10 +971,6 @@ piece files.  I used the GFDL/GPL/BSD-licenced [[https://en.wikipedia.org/wiki/U
 Burnett]] designed for Wikipedia.  Here are [[https://github.com/oakmac/chessboardjs/tree/master/website/img/chesspieces][some more alternatives]].
 Drop them in the directory ~release/img~ and you should be good to go!
 
-* Part III: A drag and drop chessboard
-   :PROPERTIES:
-   :CUSTOM_ID: part-iii
-   :END:
 ** Your first commands: Random moves
 
 Now let's wire our "random" messages.  We have message ~Random_button~
@@ -1038,8 +1054,7 @@ type msg =
 
 Now Bucklescript will automatically derive these functions for you
 with an initial lowercase letter,
-and you can use them like I did above.  In general, [[https://bucklescript.github.io/docs/en/interop-cheatsheet.html][Bucklescript
-annotations]] are use for BS/JS interop.
+and you can use them like I did above.  In general, [[https://bucklescript.github.io/docs/en/interop-cheatsheet.html][Bucklescript annotations]] are use for BS/JS interop.
 
 When the ~Random_move~ message comes back, we use O'Chess to actually
 make the move on the chessboard:
@@ -1060,7 +1075,9 @@ evaluation, so it needs to know how to update the position evaluation.
 Just disregard it.)
 
 Since the model was updated, the ~view~ function will rerender the
-chessboard. Try it out!
+chessboard. Try it out!  It should look a little like this:
+
+@@html:<img class="full" width="490" height="570" src="random.gif" />@@
 
 ** Composing views and models
 
@@ -1242,6 +1259,10 @@ let view model =
     ]
 #+END_SRC
 
+* Part III: A drag and drop chessboard
+   :PROPERTIES:
+   :CUSTOM_ID: part-iii
+   :END:
 ** Drag and drop: defining messages
 
 So that's nice, but why can't I make a move? you ask.  Let's implement
@@ -1374,7 +1395,8 @@ to assign a type to the data that we want to extract from the event.
 
 Here's a typical ~mousedown~ event:
 
-[[./mousedown.png]]
+@@html:<img class="full" width="385" height="661" src="mousedown.png" />@@
+
 
 We don't need all that data, but we also don't want to write a type
 that represents the entire data structure.  For instance, to start the
@@ -3764,7 +3786,12 @@ makes the board shrink successively when the screen gets smaller.
 }
 #+END_SRC
 
-Test the code by resizing the browser window.  Modern browsers also
+Test the code by resizing the browser window.  It should look a little
+like this:
+
+@@html:<img class="full" width="1000" height="640" src="responsive.gif" />@@
+
+Modern browsers also
 have a "responsive design mode" in their developer tools that has
 presets for various devices.
 
