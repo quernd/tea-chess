@@ -75,40 +75,40 @@ cb-piece.dragged {
 }
 
 cb-piece.white.king {
-    background-image: url("/img/pieces/wK.svg");
+    background-image: url("../img/pieces/wK.svg");
 }
 cb-piece.white.queen {
-    background-image: url("/img/pieces/wQ.svg");
+    background-image: url("../img/pieces/wQ.svg");
 }
 cb-piece.white.rook {
-    background-image: url("/img/pieces/wR.svg");
+    background-image: url("../img/pieces/wR.svg");
 }
 cb-piece.white.bishop {
-    background-image: url("/img/pieces/wB.svg");
+    background-image: url("../img/pieces/wB.svg");
 }
 cb-piece.white.knight {
-    background-image: url("/img/pieces/wN.svg");
+    background-image: url("../img/pieces/wN.svg");
 }
 cb-piece.white.pawn {
-    background-image: url("/img/pieces/wP.svg");
+    background-image: url("../img/pieces/wP.svg");
 }
 cb-piece.black.king {
-    background-image: url("/img/pieces/bK.svg");
+    background-image: url("../img/pieces/bK.svg");
 }
 cb-piece.black.queen {
-    background-image: url("/img/pieces/bQ.svg");
+    background-image: url("../img/pieces/bQ.svg");
 }
 cb-piece.black.rook {
-    background-image: url("/img/pieces/bR.svg");
+    background-image: url("../img/pieces/bR.svg");
 }
 cb-piece.black.bishop {
-    background-image: url("/img/pieces/bB.svg");
+    background-image: url("../img/pieces/bB.svg");
 }
 cb-piece.black.knight {
-    background-image: url("/img/pieces/bN.svg");
+    background-image: url("../img/pieces/bN.svg");
 }
 cb-piece.black.pawn {
-    background-image: url("/img/pieces/bP.svg");
+    background-image: url("../img/pieces/bP.svg");
 }
 
 cb-board.dragging {
