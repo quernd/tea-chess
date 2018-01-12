@@ -1,10 +1,33 @@
 #+TITLE: Chess in Bucklescript-TEA
 #+HTML_DOCTYPE: html5
+#+OPTIONS: ':t ^:{} toc:nil
+
+#+BEGIN_EXPORT html
+<div style="display:flex;justify-content:center;align-items:center;margin:.5em auto .5em auto"><img src="/img/Octocat.jpg" width="50" height="42"
+alt="Octocat" /> <a href="https://github.com/quernd/tea-chess">Code for this tutorial</a></div>
+#+END_EXPORT
 
 This is [[../index.org][a chess-themed tutorial]] on writing an SPA in
-[[https://github.com/OvermindDL1/bucklescript-tea][Bucklescript-TEA]].
+[[https://github.com/OvermindDL1/bucklescript-tea][Bucklescript-TEA]].  You will develop an app that looks like [[./demo.html][this demo]],
+from scratch.  This tutorial was written in January 2018.  Send
+comments [[mailto:daniel-2018@eu.avior.uberspace.de][by e-mail]].
 
-* First steps with Bucklescript-TEA
+| Part I    | [[#part-i][First steps with Bucklescript]]         | bsb, Tea.Html, Tea.App        |
+| Part II   | [[#part-ii][A static chessboard]]                   | Merlin, NPM/Yarn              |
+| Part III  | [[#part-iii][A drag and drop chessboard]]            | Tea.Sub, Tea.Json, Tea.Mouse  |
+| Part IV   | [[#part-iv][Moving in the move list]]               | list zippers, keyboard events |
+| Part V    | [[#part-v][AJAX, parsing and responsive CSS]]      | Tea.Http, parser combinators  |
+| Part VI   | [[#part-vi][Lenses, maps, and functors]]            | Lens, Map, functors           |
+| Part VII  | [[#part-vii][Routing, local storage and JS interop]] | Tea.Navigation, Tea.Ex        |
+| Part VIII | [[#part-viii][A move tree]]                           | tree zippers                  |
+
+#+TOC: headlines 2
+
+* Part I: First steps with Bucklescript
+   :PROPERTIES:
+   :CUSTOM_ID: part-i
+   :END:
+
 ** Getting started
 
 Before you can setup [[https://bucklescript.github.io/][Bucklescript]], make sure you have the following installed:
@@ -43,8 +66,8 @@ will install the dependencies (~bs-platform~, ~bucklescript-tea~ and
 ~rollup~ for bundling). Make sure to run ~yarn link~ (in the global
 location of ~bs-platform~) and ~yarn link bs-platform~ first if you
 have a global installation of ~bs-platform~, otherwise you will get a
-fresh local install. You are ready to start coding and can skip to the
-next section.
+fresh local install. You are ready to start coding and can [[#ready][skip to the
+next section]].
 
 ** Project setup from scratch
 
@@ -206,6 +229,9 @@ following into ~release/index.html~:
 #+END_SRC
 
 ** The Elm architecture
+   :PROPERTIES:
+   :CUSTOM_ID: ready
+   :END:
 
 Maybe you are
 familiar with the "Elm architecture", made popular by the Elm language
@@ -443,7 +469,10 @@ created release/main.js in 2.1s
 Whenever something breaks, it will display the error and keep
 recompiling until you get it right :-)
 
-* A static chessboard
+* Part II: A static chessboard
+   :PROPERTIES:
+   :CUSTOM_ID: part-ii
+   :END:
 ** Merlin
 
 If you installed Merlin, you can use it to examine the types of the
@@ -922,7 +951,10 @@ piece files.  I used the GFDL/GPL/BSD-licenced [[https://en.wikipedia.org/wiki/U
 Burnett]] designed for Wikipedia.  Here are [[https://github.com/oakmac/chessboardjs/tree/master/website/img/chesspieces][some more alternatives]].
 Drop them in the directory ~release/img~ and you should be good to go!
 
-* A drag and drop chessboard
+* Part III: A drag and drop chessboard
+   :PROPERTIES:
+   :CUSTOM_ID: part-iii
+   :END:
 ** Your first commands: Random moves
 
 Now let's wire our "random" messages.  We have message ~Random_button~
@@ -1709,8 +1741,10 @@ let update model = function
   (* ... *)
 #+END_SRC
 
+#+BEGIN_exercise
 (Actually, there is one more thing. I leave it to you as an exercise, or you can peek
 into my source code -- we need to pass ~interactable~ to ~Board.view~.)
+#+END_exercise
 
 There we go! You can now make moves, as long as they don't involve
 pawn promotion. Which brings us to the next topic...
@@ -1871,7 +1905,10 @@ cb-promo cb-square:hover cb-piece {
 No changes are required in ~src/Main.ml~;  enjoy your promotion!  (I
 promote you from "TEA novice" to "TEA apprentice".)
 
-* Moving in the move list
+* Part IV: Moving in the move list
+   :PROPERTIES:
+   :CUSTOM_ID: part-iv
+   :END:
 ** Motivational move logging
 
 Let's refactor a bit before we take care of move logging.  We'll
@@ -2010,9 +2047,11 @@ let update model = function
     end
 #+END_SRC
 
-(Exercise: Sending a new message like this is a little inefficient. 
+#+BEGIN_exercise
+Exercise: Sending a new message like this is a little inefficient. 
 Rewrite the code so that the
-message is directly handled by ~Game.update~.)
+message is directly handled by ~Game.update~.
+#+END_exercise
 
 The ~view~ function sends a ~Game_msg Take_back~ when the
 corresponding button is clicked:
@@ -2579,7 +2618,10 @@ be highlighted for the user's orientation) with a default argument, and
 ~ply'~ is always the current ply, and ~offset~ is the distance from
 the current ply to the move being rendered.  This enables us to add a
 ~Jump~ message which we will handle to jump around in the game.
-(Exercise: add the ~Jump~ message to the ~msg~ type.)
+
+#+BEGIN_exercise
+Exercise: add the ~Jump~ message to the ~msg~ type.
+#+END_exercise
 
 ~home_view~ is similar to ~move_view~.  We will use it to display a
 little Unicode glyph at the beginning of the line so the user can jump
@@ -2600,8 +2642,10 @@ fold because I wanted to additionally carry around the offset.  This
 function is used to add the "past" moves in the right order to the
 existing list of future moves.
 
-(Exercise: Work out how you could express ~move_list_past_view~ in terms of
-~List.fold_left~.  Hint: combine accumulator and offset counter.)
+#+BEGIN_exercise
+Exercise: Work out how you could express ~move_list_past_view~ in terms of
+~List.fold_left~.  Hint: combine accumulator and offset counter.
+#+END_exercise
 
 The future moves on the other hand are rendered by a variation of a
 /right fold/ (or /foldback/, or /foldr/).  Again, OCaml has it in its
@@ -2626,8 +2670,7 @@ accumulator!  That's why it starts with the /identity function/ (~fun
 x -> x~) and keeps building bigger functions.  When the list is
 exhausted, all that needs to be done is to run this function and we're
 done! If you are new to functional programming, and
-all of this sounds scary, I recommend the excellent [[https://fsharpforfunandprofit.com/posts/recursive-types-and-folds/][series on
-"folds" by Scott Wlaschin]] if you want to understand what is going on
+all of this sounds scary, I recommend the excellent [[https://fsharpforfunandprofit.com/posts/recursive-types-and-folds/][series on "folds" by Scott Wlaschin]] if you want to understand what is going on
 here.
 
 #+BEGIN_hint
@@ -2791,7 +2834,10 @@ let update model = function
     end
 #+END_SRC
 
-* AJAX, parsing and responsive CSS
+* Part V: AJAX, parsing and responsive CSS
+   :PROPERTIES:
+   :CUSTOM_ID: part-v
+   :END:
 ** HTTP requests (AJAX)
 
 An SPA is not an SPA without some HTTP requests. Let's get some AJAX action going by making a GET request to an API.
@@ -2873,7 +2919,8 @@ let update model = function
     end, Cmd.none
 #+END_SRC
 
-(Exercise: There are usually two players in a game, but what if the
+#+BEGIN_exercise
+Exercise: There are usually two players in a game, but what if the
 API returns bad data?  Modify the
 JSON decoder so that it checks the list of players for the correct
 length.  Hint: Use ~Json.Decoder.map~ and raise an exception if
@@ -2881,6 +2928,7 @@ necessary.  You can check the sourcecode of ~Json.Decoder~ for a
 suitable exception.  Don't worry, the implementation of
 ~Json.Decoder.decodeString~ will catch any exception you raise and
 wrap it in a ~Result.Error~.)
+#+END_exercise
 
 Here's a simple ~Lichess.view~ that displays the list of games:
 
@@ -3152,10 +3200,12 @@ you run parsers sequentially, and with ~return~, you can specify the
 format of the return value.   If all of this went a little too fast
 for you, check out [[https://fsharpforfunandprofit.com/posts/understanding-parser-combinators/][Scott Wlaschin's excellent tutorial on parser combinators]].
 
-(Exercise:  Implement a parser combinator that takes two parsers
+#+BEGIN_exercise
+Exercise:  Implement a parser combinator that takes two parsers
 ~p1~ and ~p2~ and
 returns a parser that ignores the result of
-the ~p1~, returning only the result of ~p2~.)
+the ~p1~, returning only the result of ~p2~.
+#+END_exercise
 
 ** The PGN format
 
@@ -3830,7 +3880,10 @@ ul.pgnheader label span:after {
 }
 #+END_SRC
 
-* Lenses and maps
+* Part VI: Lenses, maps, and functors
+   :PROPERTIES:
+   :CUSTOM_ID: part-vi
+   :END:
 ** A list of games
 
 
@@ -3916,9 +3969,11 @@ let view model =
         ]
 #+END_SRC
 
-(Exercise: flesh out the app by implementing the ~Reset_game- and
+#+BEGIN_exercise
+Exercise: flesh out the app by implementing the ~Reset_game- and
 ~New_game~ messages as well as the ~Switch_game~ message.  Also make
-sure any Lichess game is appended to the list.)
+sure any Lichess game is appended to the list.
+#+END_exercise
 
 ** A functional getter/setter: Lens!
 
@@ -4287,9 +4342,11 @@ that this will raise an exception on an empty map, but so far our
 games map can never be empty.)  Then we add the game and return the
 new model and that's already it!
 
-(Exercise: update all the code that needs this function to work.  Add
+#+BEGIN_exercise
+Exercise: update all the code that needs this function to work.  Add
 a "delete game" button, but make sure if there is only one game in the
-map, it can't be deleted.)
+map, it can't be deleted.
+#+END_exercise
 
 ** More maps: String maps
 
@@ -4349,14 +4406,19 @@ let update model = function
   (* ... *)
 #+END_SRC
 
-(Exercise:  This opens the game again, so you can have the same game
+#+BEGIN_exercise
+Exercise:  This opens the game again, so you can have the same game
 open multiple times for replaying and editing. Change it so that you
 store the game number of open Lichess games and just switch to an
 already open
 game instead of opening a new game.  Also add "revert" functionality
-to undo any changes to Lichess games.)
+to undo any changes to Lichess games.
+#+END_exercise
 
-* Routing, local storage and JS interop
+* Part VII: Routing, local storage and JS interop
+   :PROPERTIES:
+   :CUSTOM_ID: part-vii
+   :END:
 ** Client-side routing
 
 Just like an SPA isn't really an SPA without AJAX, it's not really an
@@ -4717,8 +4779,10 @@ let update model = function
     |> update_route model
 #+END_SRC
 
-(Exercise:  Wire the buttons needed to interact with local storage.
-You can also implement selective "save" and "delete" actions.)
+#+BEGIN_exercise
+Exercise:  Wire the buttons needed to interact with local storage.
+You can also implement selective "save" and "delete" actions.
+#+END_exercise
 
 ** Play against the computer
 
@@ -4878,7 +4942,11 @@ think and a better move).  We need to use the ## syntax to call the
 ~postMessage~ method.  Notice that it will return ~()~ and so can be
 used to trigger a side effect.  This is the first time we're being
 sneaky and perform a side effect other than ~Js.log~ and ~alert~
-outside of TEA. (Exercise: Use tasks instead.)
+outside of TEA. 
+
+#+BEGIN_exercise
+Exercise: Use tasks instead.
+#+END_exercise
 
 Here's a simple view for Stockfish:
 
@@ -5148,7 +5216,10 @@ let update model = function
 
 Enjoy your games against the computer!
 
-* A move tree view
+* Part VIII: A move tree view
+   :PROPERTIES:
+   :CUSTOM_ID: part-viii
+   :END:
 ** Fully functional: Tree zippers!
 
 Let's finally turn our move list into a move tree. Since we have been using list
@@ -5665,3 +5736,5 @@ ol.variations ol.variations ol.variations ol.variations ol.variations ol.variati
     background: #ffffff;
 }
 #+END_SRC
+
+THE END :-)
