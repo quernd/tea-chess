@@ -201,7 +201,7 @@ let update model = function
     let f = (fun string -> Stockfish.data string |> stockfish_msg) in
     begin match stockfish_loader f |> Js.Nullable.to_opt
       with
-      | None -> Js.log "Stockfish failed to load"; model, Cmd.none
+      | None -> alert "Stockfish failed to load"; model, Cmd.none
       | Some stockfish ->
         { model with stockfish = Some (Stockfish.init stockfish) }, Cmd.none
     end
