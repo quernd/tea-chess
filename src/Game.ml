@@ -39,9 +39,8 @@ let init_with_position position =
   ; result = None              
   }
 
-let init_with_fen fen =
-  let position = Chess.FEN.position_of_fen fen in
-  init_with_position position
+let init_with_fen =
+  Chess.FEN.position_of_fen >>> init_with_position
 
 let init = init_with_position Chess.init_position
 
