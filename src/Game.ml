@@ -39,8 +39,9 @@ let init_with_position position =
   ; result = None              
   }
 
-let init_with_fen =
-  Chess.FEN.position_of_fen >>> init_with_position
+let init_with_fen fen =
+  let position = Chess.FEN.position_of_fen fen in
+  init_with_position position
 
 let init = init_with_position Chess.init_position
 
@@ -150,16 +151,16 @@ let game_of_pgn' pgn =
       let move, position' = move_of_pgn position hd in
       Zipper.Var (move, line_of_pgn position' tl)
     | _ -> raise Pgn.Parse_error
-  and move_of_pgn position pgn_move =
-    let move = Pgn.move_of_pgn_move position pgn_move.Pgn.move in
+  and move_of_pgn position (pgn_move:Pgn.move) =
+    let move = Pgn.move_of_pgn_move position pgn_move.move in
     let san = Chess.san_of_move position move in
     { move
     ; san
     ; pre_comments = pgn_move.pre_comments
     ; post_comments = pgn_move.post_comments
     }, Chess.make_move' position move
-  and node_of_pgn position pgn_move =
-    let rav = List.map (variation_of_pgn position) pgn_move.Pgn.rav in
+  and node_of_pgn position (pgn_move:Pgn.move) =
+    let rav = List.map (variation_of_pgn position) pgn_move.rav in
     let move, position' = move_of_pgn position pgn_move in
     Zipper.Node (move, rav), position'
 

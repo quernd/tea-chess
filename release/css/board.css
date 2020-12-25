@@ -133,7 +133,7 @@ cb-square.destination {
 cb-square.destination:not(:empty) {
     background-image: radial-gradient(transparent 0%, transparent 80%, rgba(20,30,50,0.3) 80%);
 }
-cb-square.destination:hover {
+cb-square.destination.hovering {
     background-image: linear-gradient(rgba(20,30,50,0.3), rgba(20,30,50,0.3));
 }
 

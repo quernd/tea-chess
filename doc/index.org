@@ -28,7 +28,6 @@ comments [[mailto:daniel-2018@eu.avior.uberspace.de][by e-mail]].
    :PROPERTIES:
    :CUSTOM_ID: part-i
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 
 I recently started frontend web development in [[https://ocaml.org/][OCaml]] by using
 [[https://bucklescript.github.io/][Bucklescript]] to compile my code into Javascript. Naturally, a
@@ -47,6 +46,8 @@ will certainly help if you have a little experience with chess, web
 development and in particular functional programming in general or OCaml in
 particular, but it is no prerequisite, you can pick up everything you
 need on the way.
+
+
 ** Getting started
 
 Before you can setup [[https://bucklescript.github.io/][Bucklescript]], make sure you have the following installed:
@@ -492,7 +493,6 @@ recompiling until you get it right :-)
    :PROPERTIES:
    :CUSTOM_ID: part-ii
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** Merlin
 
 If you installed Merlin, you can use it to examine the types of the
@@ -1263,7 +1263,6 @@ let view model =
    :PROPERTIES:
    :CUSTOM_ID: part-iii
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** Drag and drop: defining messages
 
 So that's nice, but why can't I make a move? you ask.  Let's implement
@@ -1419,7 +1418,8 @@ such as ~map2~.  Here are the decoders we will need for the
 #+BEGIN_SRC ocaml
 let cartesian_decoder field_x field_y =
   let open Json.Decoder in
-  map2 (fun x y -> Mouse.{x; y})
+  let open Mouse in
+  map2 (fun x y -> {x; y})
     (field field_x int)
     (field field_y int)
 
@@ -1441,8 +1441,7 @@ let offset_page_size =
 The first, ~cartesian_decoder~ is a template for arbitrary decoders
 with two fields.  It uses two ~field~ decoders for the given fields
 and returns a record ~{x; y}~ (of type ~Mouse.position~, that's why we
-have to prefix it with ~Mouse~ -- alternatively, we could open ~Mouse~
-or annotate the type explicitly).
+have to open ~Mouse~ -- alternatively, we could annotate the type).
 Notice how ~map2~ takes a function that combines the output of the two
 decoders it takes as its other arguments.
 
@@ -1468,9 +1467,11 @@ function we needed!
 
 #+BEGIN_SRC ocaml
 let handler decoder msg event =
-  match decoder event with
-  | Result.Ok result -> Some (msg result)
-  | Result.Error _ -> None
+  let open Result in
+  let result = decoder event in
+  match result with
+  | Ok result -> Some (msg result)
+  | Error _ -> None
 #+END_SRC
 
 ** CSS for drag and drop
@@ -1930,7 +1931,6 @@ promote you from "TEA novice" to "TEA apprentice".)
    :PROPERTIES:
    :CUSTOM_ID: part-iv
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** Motivational move logging
 
 Let's refactor a bit before we take care of move logging.  We'll
@@ -2860,7 +2860,6 @@ let update model = function
    :PROPERTIES:
    :CUSTOM_ID: part-v
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** HTTP requests (AJAX)
 
 An SPA is not an SPA without some HTTP requests. Let's get some AJAX action going by making a GET request to an API.
@@ -3503,7 +3502,8 @@ everything up nicely:
 #+BEGIN_SRC ocaml
 (* nonstandard 1/2 *)
 let result =
-  (token "1-0" >> return (Some (Chess.Win White))) <|>
+  let open Chess in
+  (token "1-0" >> return (Some (Win White))) <|>
   (token "1/2-1/2" >> return (Some Draw)) <|>
   (token "1/2" >> return (Some Draw)) <|>
   (token "0-1" >> return (Some (Win Black))) <|>
@@ -3515,14 +3515,6 @@ let game =
   line () << spaces >>= fun moves ->
   result >>= fun result -> return { header; moves; result }
 #+END_SRC
-
-#+BEGIN_hint
-When we need to qualify a variant constructor by adding the module
-name (like ~Chess.Win~), the compiler may be able to infer other
-types without annotation, simply because they have to match.  By
-qualifying ~Win~, you
-don't have to qualify either ~White~, ~Draw~ nor ~Black~.
-#+END_hint
 
 ** From PGN to game zipper
 
@@ -3919,7 +3911,6 @@ ul.pgnheader label span:after {
    :PROPERTIES:
    :CUSTOM_ID: part-vi
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** A list of games
 
 
@@ -4455,7 +4446,6 @@ to undo any changes to Lichess games.
    :PROPERTIES:
    :CUSTOM_ID: part-vii
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** Client-side routing
 
 Just like an SPA isn't really an SPA without AJAX, it's not really an
@@ -4533,8 +4523,8 @@ and the variant type, because we need to be able to listen on both
 "standard" route changes and route changes through the URL:
 
 #+BEGIN_SRC ocaml
-let route_of_location location =
-  let route = Js.String.split "/" location.Web.Location.hash in
+let route_of_location (location:Web.Location.location) =
+  let route = Js.String.split "/" location.hash in
   match route with
   | [|"#"; ""|] -> Game 1
   | [|"#"; "tournament"|] -> Tournament
@@ -4547,13 +4537,6 @@ let location_of_route = function
   | Lichess id -> Printf.sprintf "#/lichess/%s" id
   | Tournament -> "#/tournament"
 #+END_SRC
-
-#+BEGIN_hint
-When we need to access a record field from a record that was defined
-in another module, we use the funny-looking syntax above:
-~location.Web.Location.hash~, where the module name is "infixed" into
-the record and the field name.
-#+END_hint
 
 Now we're ready to define what happens on a route change.  These were
 previously handled in the ~update~ function.  Note how we
@@ -5264,7 +5247,6 @@ Enjoy your games against the computer!
    :PROPERTIES:
    :CUSTOM_ID: part-viii
    :END:
-@@html:<p class="up"><a href="#">up</a></p>@@
 ** Fully functional: Tree zippers!
 
 Let's finally turn our move list into a move tree. Since we have been using list
@@ -5510,16 +5492,16 @@ let game_of_pgn' pgn =
       let move, position' = move_of_pgn position hd in
       Zipper.Var (move, line_of_pgn position' tl)
     | _ -> raise Pgn.Parse_error
-  and move_of_pgn position pgn_move =
-    let move = Pgn.move_of_pgn_move position pgn_move.Pgn.move in
+  and move_of_pgn position (pgn_move:Pgn.move) =
+    let move = Pgn.move_of_pgn_move position pgn_move.move in
     let san = Chess.san_of_move position move in
     { move
     ; san
     ; pre_comments = pgn_move.pre_comments
     ; post_comments = pgn_move.post_comments
     }, Chess.make_move' position move
-  and node_of_pgn position pgn_move =
-    let rav = List.map (variation_of_pgn position) pgn_move.Pgn.rav in
+  and node_of_pgn position (pgn_move:Pgn.move) =
+    let rav = List.map (variation_of_pgn position) pgn_move.rav in
     let move, position' = move_of_pgn position pgn_move in
     Zipper.Node (move, rav), position'
 
