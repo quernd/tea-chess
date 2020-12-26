@@ -83,7 +83,7 @@ let update_route model = function
   | Game _ -> { model with route = Game 1 },
               location_of_route (Game 1) |> Navigation.modifyUrl
   | Tournament ->
-    { model with route = Tournament }, Cmd.msg (Lichess_msg Load_tournament)
+    { model with route = Tournament }, Cmd.none
   | Lichess game_id ->
     begin try
         let game = StringMap.find game_id model.lichess_games in
