@@ -80,17 +80,17 @@ let update model = function
         | "draw" | "stalemate" -> Some Chess.Draw
         | "created" | "started" -> None
         | "aborted" -> None
-        | "mate" | "resign" | "stalemate"
+        | "mate" | "resign" | "timeout"
         | "outoftime" | "cheat" | "noStart" -> begin
             match winner with
-            | "white" -> Some (Chess.Win White)
-            | "black" -> Some (Chess.Win Black)
+            | Some "white" -> Some (Chess.Win White)
+            | Some "black" -> Some (Chess.Win Black)
             | _ -> None
           end
         | _ -> None
       )
         (field "status" string)
-        (field "winner" string) in
+        (maybe (field "winner" string)) in
 
     let game_decoder =
       map4 (fun id white black result -> { id ; white ; black ; result })
