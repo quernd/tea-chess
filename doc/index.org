@@ -11,16 +11,16 @@ This is a chess-themed tutorial on writing an SPA in
 from scratch. 
 
 This tutorial was written in January 2018.  Send
-comments [[mailto:daniel-2018@eu.avior.uberspace.de][by e-mail]].
+comments [[mailto:quernd@gmx.de][by e-mail]].
 
-| Part I    | [[#part-i][First steps with Bucklescript-TEA]]     | bsb, Tea, Tea.Html, Tea.App      |
-| Part II   | [[#part-ii][A chessboard with random moves]]        | Tea.Cmd, Tea.Random, composition |
-| Part III  | [[#part-iii][A drag and drop chessboard]]            | Tea.Sub, Tea.Json, Tea.Mouse     |
-| Part IV   | [[#part-iv][Moving in the move list]]               | list zippers, keyboard events    |
-| Part V    | [[#part-v][AJAX, parsing and responsive CSS]]      | Tea.Http, parser combinators     |
-| Part VI   | [[#part-vi][Lenses, maps, and functors]]            | Lens, Map.Make, functors         |
-| Part VII  | [[#part-vii][Routing, local storage and JS interop]] | Tea.Navigation, Tea.Ex           |
-| Part VIII | [[#part-viii][A move tree]]                           | tree zippers, recursive views    |
+| Part I    | [[#part-i][First steps with Bucklescript-TEA]]        | bsb, Tea, Tea.Html, Tea.App      |
+| Part II   | [[#part-ii][A chessboard with random moves]]           | Tea.Cmd, Tea.Random, composition |
+| Part III  | [[#part-iii][A drag and drop chessboard]]               | Tea.Sub, Tea.Json, Tea.Mouse     |
+| Part IV   | [[#part-iv][Moving in the move list]]                  | list zippers, keyboard events    |
+| Part V    | [[#part-v][AJAX, parsing and responsive CSS]]         | Tea.Http, parser combinators     |
+| Part VI   | [[#part-vi][Lenses, maps, and functors]]               | Lens, Map.Make, functors         |
+| Part VII  | [[#part-vii][Routing, local storage, computer matches]] | Tea.Navigation, Tea.Ex           |
+| Part VIII | [[#part-viii][A move tree]]                              | tree zippers, recursive views    |
 
 #+TOC: headlines 2
 
@@ -28,6 +28,7 @@ comments [[mailto:daniel-2018@eu.avior.uberspace.de][by e-mail]].
    :PROPERTIES:
    :CUSTOM_ID: part-i
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 
 I recently started frontend web development in [[https://ocaml.org/][OCaml]] by using
 [[https://bucklescript.github.io/][Bucklescript]] to compile my code into Javascript. Naturally, a
@@ -46,8 +47,6 @@ will certainly help if you have a little experience with chess, web
 development and in particular functional programming in general or OCaml in
 particular, but it is no prerequisite, you can pick up everything you
 need on the way.
-
-
 ** Getting started
 
 Before you can setup [[https://bucklescript.github.io/][Bucklescript]], make sure you have the following installed:
@@ -126,8 +125,13 @@ We need one more tool to do meaningful development.  Bucklescript
 itself translates one OCaml file into one Javascript file, so unless
 you want to do all your development in one big file (which I don't
 think you will), you need a bundler to link the pieces together for
-the browser.  I'm using [[https://rollupjs.org/][Rollup]], but you could also give [[http://browserify.org/][Browserify]] or
-[[https://webpack.js.org/][Webpack]] a try.  Install the following NPM packages:
+the browser.  I'm using [[https://rollupjs.org/][Rollup]], but you could also give [[https://en.parceljs.org/][Parcel]], [[http://browserify.org/][Browserify]] or
+[[https://webpack.js.org/][Webpack]] a try.  Especially Parcel, the "zero-configuration"
+application bundler,
+is a good choice if you just want to get things up and running.
+(Instructions below.)
+
+Install the following NPM packages:
 
 #+BEGIN_SRC 
 yarn add -D rollup
@@ -232,8 +236,6 @@ following into ~release/index.html~:
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="">
-    <meta name="author" content="">
     <title>TEA-Chess</title>
   </head>
 
@@ -247,6 +249,41 @@ following into ~release/index.html~:
   </body>
 </html>
 #+END_SRC
+
+#+BEGIN_hint
+If you use the "zero-configuration" bundler [[https://en.parceljs.org/][Parcel]], you need to
+structure your code slightly differently.  Here's ~release/index.html~:
+
+#+BEGIN_SRC html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TEA-Chess</title>
+  </head>
+
+  <body>
+    <script src="./index.js"></script>
+  </body>
+</html>
+#+END_SRC
+
+And here's ~release/index.js~:
+
+#+BEGIN_SRC javascript
+import * as starter from '../src/Main.bs.js';
+setTimeout(function() {
+    var app = starter.main(document.body);
+}, 1)
+#+END_SRC
+
+Then, ~parcel release/index.html~ will build your bundle without any
+problems.  This approach also works for Rollup (you just have to point
+~input~ to ~release/index.js~ and use ~<script
+src="main.js"></script>~ in the HTML file instead).
+#+END_hint
 
 ** The Elm architecture
    :PROPERTIES:
@@ -493,6 +530,7 @@ recompiling until you get it right :-)
    :PROPERTIES:
    :CUSTOM_ID: part-ii
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** Merlin
 
 If you installed Merlin, you can use it to examine the types of the
@@ -1263,6 +1301,7 @@ let view model =
    :PROPERTIES:
    :CUSTOM_ID: part-iii
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** Drag and drop: defining messages
 
 So that's nice, but why can't I make a move? you ask.  Let's implement
@@ -1362,6 +1401,18 @@ message, we'll instruct our main ~update~ function to just pass the
 message on, but we will make sure to handle the ~Move~ message when a
 move has been made on the board.
 
+#+BEGIN_hint
+This is a very simple pattern of child-to-parent communication (it has
+been called [[http://folkertdev.nl/blog/elm-child-parent-communication/]["naive"]]), but
+not the only possible pattern.  Another way is to change the signature
+of ~Board.update~ to return an optional message in addition to model
+and command.  This has been [[http://folkertdev.nl/blog/elm-child-parent-communication/][described for Elm]] but of course also works
+in Bucklescript-TEA.  Another pattern, the "translator pattern", also
+uses child-internal messages, but adds
+a [[https://medium.com/@alex.lew/the-translator-pattern-a-model-for-child-to-parent-communication-in-elm-f4bfaa1d3f98][translation function]] to the "tagger" to map child messages to different parent
+messages. 
+#+END_hint
+
 We actually need to define the types ~file~, ~square~ and ~rank~.  I
 like to define types like these even when they're really just
 integers, because it makes it easier to understand what's going on
@@ -1418,8 +1469,7 @@ such as ~map2~.  Here are the decoders we will need for the
 #+BEGIN_SRC ocaml
 let cartesian_decoder field_x field_y =
   let open Json.Decoder in
-  let open Mouse in
-  map2 (fun x y -> {x; y})
+  map2 (fun x y -> Mouse.{x; y})
     (field field_x int)
     (field field_y int)
 
@@ -1441,7 +1491,8 @@ let offset_page_size =
 The first, ~cartesian_decoder~ is a template for arbitrary decoders
 with two fields.  It uses two ~field~ decoders for the given fields
 and returns a record ~{x; y}~ (of type ~Mouse.position~, that's why we
-have to open ~Mouse~ -- alternatively, we could annotate the type).
+have to prefix it with ~Mouse~ -- alternatively, we could open ~Mouse~
+or annotate the type explicitly).
 Notice how ~map2~ takes a function that combines the output of the two
 decoders it takes as its other arguments.
 
@@ -1467,11 +1518,9 @@ function we needed!
 
 #+BEGIN_SRC ocaml
 let handler decoder msg event =
-  let open Result in
-  let result = decoder event in
-  match result with
-  | Ok result -> Some (msg result)
-  | Error _ -> None
+  match decoder event with
+  | Result.Ok result -> Some (msg result)
+  | Result.Error _ -> None
 #+END_SRC
 
 ** CSS for drag and drop
@@ -1931,6 +1980,7 @@ promote you from "TEA novice" to "TEA apprentice".)
    :PROPERTIES:
    :CUSTOM_ID: part-iv
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** Motivational move logging
 
 Let's refactor a bit before we take care of move logging.  We'll
@@ -2860,6 +2910,7 @@ let update model = function
    :PROPERTIES:
    :CUSTOM_ID: part-v
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** HTTP requests (AJAX)
 
 An SPA is not an SPA without some HTTP requests. Let's get some AJAX action going by making a GET request to an API.
@@ -3502,8 +3553,7 @@ everything up nicely:
 #+BEGIN_SRC ocaml
 (* nonstandard 1/2 *)
 let result =
-  let open Chess in
-  (token "1-0" >> return (Some (Win White))) <|>
+  (token "1-0" >> return (Some (Chess.Win White))) <|>
   (token "1/2-1/2" >> return (Some Draw)) <|>
   (token "1/2" >> return (Some Draw)) <|>
   (token "0-1" >> return (Some (Win Black))) <|>
@@ -3515,6 +3565,14 @@ let game =
   line () << spaces >>= fun moves ->
   result >>= fun result -> return { header; moves; result }
 #+END_SRC
+
+#+BEGIN_hint
+When we need to qualify a variant constructor by adding the module
+name (like ~Chess.Win~), the compiler may be able to infer other
+types without annotation, simply because they have to match.  By
+qualifying ~Win~, you
+don't have to qualify either ~White~, ~Draw~ nor ~Black~.
+#+END_hint
 
 ** From PGN to game zipper
 
@@ -3911,6 +3969,7 @@ ul.pgnheader label span:after {
    :PROPERTIES:
    :CUSTOM_ID: part-vi
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** A list of games
 
 
@@ -4442,10 +4501,11 @@ game instead of opening a new game.  Also add "revert" functionality
 to undo any changes to Lichess games.
 #+END_exercise
 
-* Part VII: Routing, local storage and JS interop
+* Part VII: Routing, local storage, computer matches
    :PROPERTIES:
    :CUSTOM_ID: part-vii
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** Client-side routing
 
 Just like an SPA isn't really an SPA without AJAX, it's not really an
@@ -4523,8 +4583,8 @@ and the variant type, because we need to be able to listen on both
 "standard" route changes and route changes through the URL:
 
 #+BEGIN_SRC ocaml
-let route_of_location (location:Web.Location.location) =
-  let route = Js.String.split "/" location.hash in
+let route_of_location location =
+  let route = Js.String.split "/" location.Web.Location.hash in
   match route with
   | [|"#"; ""|] -> Game 1
   | [|"#"; "tournament"|] -> Tournament
@@ -4537,6 +4597,13 @@ let location_of_route = function
   | Lichess id -> Printf.sprintf "#/lichess/%s" id
   | Tournament -> "#/tournament"
 #+END_SRC
+
+#+BEGIN_hint
+When we need to access a record field from a record that was defined
+in another module, we use the funny-looking syntax above:
+~location.Web.Location.hash~, where the module name is "infixed" into
+the record and the field name.
+#+END_hint
 
 Now we're ready to define what happens on a route change.  These were
 previously handled in the ~update~ function.  Note how we
@@ -4821,7 +4888,8 @@ your ~release/index.html~ to contain the following Javascript:
 
 #+BEGIN_SRC html
       <script>
-        stockfish_loader = function (handler) {
+        var app;
+        var stockfish_loader = function (handler) {
           stockfish = new Worker('js/stockfish.js');
           stockfish.onmessage = function(msg) {
             app.pushMsg(handler(msg.data));
@@ -5247,6 +5315,7 @@ Enjoy your games against the computer!
    :PROPERTIES:
    :CUSTOM_ID: part-viii
    :END:
+@@html:<p class="up"><a href="#">up</a></p>@@
 ** Fully functional: Tree zippers!
 
 Let's finally turn our move list into a move tree. Since we have been using list
@@ -5405,9 +5474,78 @@ Our tree zipper is ready to be used :-)
 let tree_init () = (Main_line, []), []  (* outer context + past + future *)
 #+END_SRC
 
-** TODO Inside-out folds
+** Building a zipper recursively
 
-UNDER CONSTRUCTION
+Let's build a game zipper from a parsed PGN game.  This is basically
+the same structure as the PGN parser itself, a group of mutually
+recursive functions.
+
+#+BEGIN_SRC ocaml
+let game_of_pgn' pgn =
+  let rec line_of_pgn position = function
+    | [] -> []
+    | hd::tl ->
+      let node, position' = node_of_pgn position hd in
+      node::line_of_pgn position' tl
+  and variation_of_pgn position = function
+    | hd::tl ->
+      let move, position' = move_of_pgn position hd in
+      Zipper.Var (move, line_of_pgn position' tl)
+    | _ -> raise Pgn.Parse_error
+  and move_of_pgn position pgn_move =
+    let move = Pgn.move_of_pgn_move position pgn_move.Pgn.move in
+    let san = Chess.san_of_move position move in
+    { move
+    ; san
+    ; pre_comments = pgn_move.pre_comments
+    ; post_comments = pgn_move.post_comments
+    }, Chess.make_move' position move
+  and node_of_pgn position pgn_move =
+    let rav = List.map (variation_of_pgn position) pgn_move.Pgn.rav in
+    let move, position' = move_of_pgn position pgn_move in
+    Zipper.Node (move, rav), position'
+
+  in
+
+  let game = 
+    try Pgn.parse_pgn pgn |> Option.get
+    with Invalid_argument _ -> raise Pgn.Parse_error in
+  let init_fen =
+    try Some (List.assoc "FEN" game.header)
+    with Not_found -> None in
+
+  let init_position =
+    Option.default_map
+      Chess.FEN.position_of_fen Chess.init_position init_fen in
+
+  let moves = line_of_pgn init_position game.moves in
+  { position = init_position
+  ; header = game.header
+  ; moves = (Zipper.Main_line, []), moves
+  ; result = game.result
+  }
+
+let game_of_pgn pgn =
+  try Some (game_of_pgn' pgn)
+  with _ -> None 
+#+END_SRC
+
+** Inside-out folds
+
+Now let's tackle the other side of the coin, serialization of a zipper
+and the move view.
+We will try to abstract as much as possible in this section.  Since
+both PGN serialization and the move tree view involve building the
+tree structure that underlies the game zipper, we will implement a
+generic tree zipper "fold"-like function that traverses and maps the
+zipper.
+
+First, let's write two helper functions.  These are similar to the
+"past" and "future" folds that we implemented earlier, but take two
+additional parameters: a second accumulator ~c~ that regardless of the
+direction of the fold is carried along from the front of the list
+(this will hold the state of the traversal, like the move number), and
+a function ~g~ that computes the next state after each step.
 
 #+BEGIN_SRC ocaml
 let id x = x
@@ -5428,8 +5566,32 @@ let fold_left' f g c l acc =
   List.fold_left
     (fun (acc, c) item -> f c item::acc, g c)
     (acc, c) l
+#+END_SRC
 
+Now we're ready for the "meat" of this section, a general "fold"-like
+function that turns a zipper into a tree, parameterized by the
+following functions:
 
+- ~make_move~ formats a move according to the "state" accumulator
+- ~make_line~ maps a list of moves 
+- ~make_variation~ wraps a line that is a variation
+- ~make_variations~ maps a list of variations
+- ~make_mainline~ wraps the main line
+
+Additionally, we supply the initial state accumulator and functions
+that change the state accumulator on its way inside the zipper.
+
+This function looks scary at first.  There are two different groups of
+mutually recursive functions here.  The first group could be called
+"top-down" functions since they operate on the tree (past/future) parts of the
+zipper.  Similar to the mutually recursive PGN parser functions, they
+build up the "triad" of moves, lines and variation lists.
+
+The second group of functions is the "bottom-up" functions that build
+up the context part of the zipper, branching out into the "top-down"
+functions when needed.
+
+#+BEGIN_SRC ocaml
 (* Generic map-fold catamorphism for move tree *)
 let fold_zipper
     ~make_mainline ~make_line ~make_variation ~make_variations ~make_move
@@ -5460,7 +5622,6 @@ let fold_zipper
     | Main_line -> make_mainline acc inner
     | Var_line (context, main, left, var_move, right, future) ->
       let this_var = make_move acc var_move (make_variations [])::inner
-                     |> id (* + acc make "not mainline" ? *)
                      |> make_line
                      |> make_variation in
       this_var::(fold_right' fold_variation next (next acc) right)
@@ -5474,60 +5635,6 @@ let fold_zipper
                        |> fold_past acc past in
   fold_line_context acc' context fold_acc
   |> make_line
-#+END_SRC
-
-** TODO Building a zipper recursively
-
-UNDER CONSTRUCTION
-
-#+BEGIN_SRC ocaml
-let game_of_pgn' pgn =
-  let rec line_of_pgn position = function
-    | [] -> []
-    | hd::tl ->
-      let node, position' = node_of_pgn position hd in
-      node::line_of_pgn position' tl
-  and variation_of_pgn position = function
-    | hd::tl ->
-      let move, position' = move_of_pgn position hd in
-      Zipper.Var (move, line_of_pgn position' tl)
-    | _ -> raise Pgn.Parse_error
-  and move_of_pgn position (pgn_move:Pgn.move) =
-    let move = Pgn.move_of_pgn_move position pgn_move.move in
-    let san = Chess.san_of_move position move in
-    { move
-    ; san
-    ; pre_comments = pgn_move.pre_comments
-    ; post_comments = pgn_move.post_comments
-    }, Chess.make_move' position move
-  and node_of_pgn position (pgn_move:Pgn.move) =
-    let rav = List.map (variation_of_pgn position) pgn_move.rav in
-    let move, position' = move_of_pgn position pgn_move in
-    Zipper.Node (move, rav), position'
-
-  in
-
-  let game = 
-    try Pgn.parse_pgn pgn |> Option.get
-    with Invalid_argument _ -> raise Pgn.Parse_error in
-  let init_fen =
-    try Some (List.assoc "FEN" game.header)
-    with Not_found -> None in
-
-  let init_position =
-    Option.default_map
-      Chess.FEN.position_of_fen Chess.init_position init_fen in
-
-  let moves = line_of_pgn init_position game.moves in
-  { position = init_position
-  ; header = game.header
-  ; moves = (Zipper.Main_line, []), moves
-  ; result = game.result
-  }
-
-let game_of_pgn pgn =
-  try Some (game_of_pgn' pgn)
-  with _ -> None 
 #+END_SRC
 
 ** TODO Move tree view and proper PGN serialization
@@ -5620,6 +5727,13 @@ let move_list_view model =
 
 ** TODO Navigating in a zipper
 
+In order to navigate in a move tree view, we need to extend our
+"vocabulary" of navigation primitives.  In a move list, all we needed
+was the offset of how many moves we wanted to navigate forward or
+backward.  Now, we will represent the path in the move tree by a list
+of actions from a variant.  The type ~acc~ will serve to carry the
+actions list and the move number along in the fold function.
+
 #+BEGIN_SRC ocaml
 type action = Fwd | Back | Down | Next | Prev | Up
 
@@ -5627,7 +5741,11 @@ type acc =
   { ply : int
   ; actions : action list
   }
+#+END_SRC
 
+Navigation itself is not tricky:
+
+#+BEGIN_SRC ocaml
 let game_back model =
   match model.position.prev with
   | Some position ->
@@ -5674,7 +5792,12 @@ let game_next = game_rewind_and_make_move Zipper.tree_next
 let game_prev = game_rewind_and_make_move Zipper.tree_prev
 let game_down = game_rewind_and_make_move Zipper.tree_down
 let game_up = game_rewind_and_make_move Zipper.tree_up
+#+END_SRC
 
+Here's how we obtain a single function from a list of actions: of
+course, using a fold!
+
+#+BEGIN_SRC ocaml
 let fun_of_action = function
   | Fwd -> game_fwd
   | Back -> game_back
@@ -5683,11 +5806,14 @@ let fun_of_action = function
   | Prev -> game_prev
   | Up -> game_up
 
-let (<.<) f g x = f (g x)
+let (<<<) f g x = f (g x)
 
 let fun_of_actions actions =
-  List.fold_left (fun acc a -> acc <.< (fun_of_action a)) id actions
+  List.fold_left (fun acc a -> acc <<< (fun_of_action a)) id actions
 #+END_SRC
+
+And finally, the ~update~ function of ~Game.ml~ becomes super easy
+because everything has been factored out:
 
 #+BEGIN_SRC ocaml
 let update model = function
@@ -5701,7 +5827,12 @@ let update model = function
     model |> fun_of_actions actions, Cmd.none
 #+END_SRC
 
-** The final touches (CSS)
+** TODO The final touches (CSS)
+
+Let's add some CSS to make the move tree look nice.  We'll make
+subvariations a little smaller and assign different list styles.  Also
+note the various CSS selector tricks to show the move numbers at the
+beginning of a variation and after a variation.
 
 #+BEGIN_SRC css
 li.move.home + li.move > span.number,
