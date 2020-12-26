@@ -58,9 +58,9 @@ end
 module Result = struct
   include Tea.Result
 
-  let rec filter = function
+  let rec to_list = function
     | [] -> []
-    | (Ok a)::tl -> a::filter tl
-    | (Error _)::tl -> filter tl
+    | (Ok a)::tl -> a::to_list tl
+    | (Error _)::tl -> to_list tl
 
 end

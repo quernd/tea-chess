@@ -68,7 +68,7 @@ let update model = function
         players_decoder in
     let games = String.split_on_char '\n' data in
 
-    let games_decoded = List.map (decodeString game_decoder) games |> Result.filter in
+    let games_decoded = List.map (decodeString game_decoder) games |> Result.to_list in
     Received games_decoded, Cmd.none
 
   | Load_game game_id ->
