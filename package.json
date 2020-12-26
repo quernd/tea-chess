@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "scripts": {
     "serve": "serve release",
-    "clean": "bsb -clean-world",
-    "build:bsb": "bsb -make-world",
+    "clean": "yarn bsb -clean-world",
+    "build:bsb": "yarn bsb -make-world",
     "build:js": "rollup -c",
     "build": "run-s build:bsb build:js",
-    "watch:bsb": "bsb -make-world -w",
+    "watch:bsb": "yarn bsb -make-world -w",
     "watch:js": "rollup -c -w",
     "watch": "run-p watch:bsb watch:js serve"
   },
@@ -17,13 +17,13 @@
   "author": "Daniel Quernheim",
   "license": "MIT",
   "devDependencies": {
-    "bs-platform": "^2.1.0",
-    "bucklescript-tea": "^0.7.0",
+    "@rollup/plugin-node-resolve": "^11.0.1",
+    "bs-platform": "^8.4.2",
+    "bucklescript-tea": "^0.15.0",
     "npm-run-all": "^4.1.2",
     "ochess": "github:quernd/ochess",
     "opal": "github:quernd/opal",
-    "rollup": "^0.53.3",
-    "rollup-plugin-node-resolve": "^3.0.0",
-    "serve": "^6.4.4"
+    "rollup": "^2.0.0",
+    "serve": "^11.3.2"
   }
 }
