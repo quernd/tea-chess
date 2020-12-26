@@ -53,3 +53,14 @@ module Option = struct
     | Some v -> v
 
 end
+
+
+module Result = struct
+  include Tea.Result
+
+  let rec filter = function
+    | [] -> []
+    | (Ok a)::tl -> a::filter tl
+    | (Error _)::tl -> filter tl
+
+end

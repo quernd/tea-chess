@@ -1,5 +1,5 @@
 open Tea
-open Util
+open! Util
 
 open Lens
 open Infix

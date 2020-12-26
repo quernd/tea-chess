@@ -1,4 +1,5 @@
 open Tea
+open! Util
 
 type msg =
   | Load_tournament
@@ -31,34 +32,12 @@ let make_request url headers action =
   Http.request request
   |> Http.send action
 
-let rec filter games =
-  let open Tea.Result in
-  match games with
-    [] -> []
-  | (Ok game)::tl -> game::filter tl
-  | (Error _)::tl -> filter tl
-
-let split_on_char sep str =
-  let rec indices acc i =
-    try
-      let i = succ(String.index_from str i sep) in
-      indices (i::acc) i
-    with Not_found ->
-      (String.length str + 1) :: acc
-  in
-  let is = indices [0] 0 in
-  let rec aux acc = function
-    | last::start::tl ->
-      let w = String.sub str start (last-start-1) in
-      aux (w::acc) (start::tl)
-    | _ -> acc
-  in
-  aux [] is
 
 let get_game msg game_id =
   let url = (Printf.sprintf
                "https://lichess.org/game/export/%s.pgn" game_id) in
   make_request url [] msg
+
 
 let update model = function
   | Load_tournament ->
@@ -87,9 +66,9 @@ let update model = function
     let game_decoder = map2 (fun x y -> x, y)
         id_decoder
         players_decoder in
-    let games = split_on_char '\n' data in
+    let games = String.split_on_char '\n' data in
 
-    let games_decoded = List.map (decodeString game_decoder) games |> filter in
+    let games_decoded = List.map (decodeString game_decoder) games |> Result.filter in
     Received games_decoded, Cmd.none
 
   | Load_game game_id ->
