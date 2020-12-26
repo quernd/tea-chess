@@ -112,7 +112,7 @@ let init () location =
 
 let update model = function
   | Board_msg (Move move) | Random_move move ->
-    let game, cmd = Game.update (model |. model.game) (Game.Move move) in
+    let game, cmd = Game.update (model |.. model.game) (Game.Move move) in
     let autoplay_cmd =
       match model.stockfish, Chess.game_status game.position with
       | Some stockfish, Play _ when stockfish.autoplay ->
@@ -127,7 +127,7 @@ let update model = function
     let board, cmd = Board.update model.board msg in
     { model with board }, Cmd.map board_msg cmd
   | Game_msg msg ->
-    let game, cmd = Game.update (model |. model.game) msg in
+    let game, cmd = Game.update (model |.. model.game) msg in
     model |> model.game ^= game, Cmd.map game_msg cmd
   | Lichess_msg (Game_data (game_id, Error _)) ->
     Printf.sprintf "Game %s could not be loaded!" game_id |> alert;
@@ -148,7 +148,7 @@ let update model = function
     { model with lichess }, Cmd.map lichess_msg cmd
   | Random_button ->
     model,
-    begin match Chess.game_status (model |. model.game).position with
+    begin match Chess.game_status (model |.. model.game).position with
       | Play move_list ->
         move_list
         |> List.length
@@ -208,9 +208,9 @@ let update model = function
   | Stockfish_msg (Move move) ->
     begin try
         let move' = Pgn.move_of_pgn_move
-            ((model |. model.game).position) move.move in
+            ((model |.. model.game).position) move.move in
         let game, cmd =
-          Game.update (model |. model.game) (Game.Move move') in
+          Game.update (model |.. model.game) (Game.Move move') in
         model |> model.game ^= game, Cmd.map game_msg cmd
       with Chess.Illegal_move -> model, Cmd.none
       (* Stockfish rarely makes illegal moves, but just in case ;-) *)
@@ -260,7 +260,7 @@ let games_picker model =
 
 let view model =
   let open! Html in
-  let game = model |. model.game in
+  let game = model |.. model.game in
   let position = game.position in
   let interactable =
     match Chess.game_status position with

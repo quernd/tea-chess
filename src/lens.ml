@@ -156,7 +156,7 @@ let xmap f g l = {
 
 module Infix =
 struct
-  let (|.) = _get
+  let (|..) = _get
 
   let (^=) l v = fun a -> _set v a l
 
