@@ -1,5 +1,4 @@
 open Tea
-open App
 open Util
 
 open Lens
@@ -199,7 +198,7 @@ let update model = function
     |> update_route model
   | Load_stockfish ->
     let f = (fun string -> Stockfish.data string |> stockfish_msg) in
-    begin match stockfish_loader f |> Js.Nullable.to_opt
+    begin match stockfish_loader f |> Js.Nullable.toOption
       with
       | None -> alert "Stockfish failed to load"; model, Cmd.none
       | Some stockfish ->
@@ -253,7 +252,7 @@ let games_picker model =
   option' [ value "0"
           ; Attributes.selected (model.route = Tournament) ]
     [ text "Tournament" ]::options
-  |> select [ int_of_string >>> switch_game |> onChange ]
+  |> select [ int_of_string >>> switch_game |> onChange ?key:None ]
 
 
 

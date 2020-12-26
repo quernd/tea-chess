@@ -85,7 +85,7 @@ let view model position =
              ; type' "number"
              ; style "width" "3em"
              ; style "margin-left" "1em"
-             ; int_of_string >>> set_depth |> onChange
+             ; int_of_string >>> set_depth |> onChange ?key:None
              ; value (string_of_int model.depth)
              ; Attributes.min "1"
              ; Attributes.max "24"
