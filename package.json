@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "scripts": {
     "serve": "serve release",
-    "clean": "yarn bsb -clean-world",
-    "build:bsb": "yarn bsb -make-world",
+    "clean": "bsb -clean-world",
+    "build:bsb": "bsb -make-world",
     "build:js": "rollup -c",
     "build": "run-s build:bsb build:js",
-    "watch:bsb": "yarn bsb -make-world -w",
+    "watch:bsb": "bsb -make-world -w",
     "watch:js": "rollup -c -w",
     "watch": "run-p watch:bsb watch:js serve"
   },
