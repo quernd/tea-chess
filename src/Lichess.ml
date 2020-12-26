@@ -14,9 +14,20 @@ type 'a transfer =
   | Failed
   | Received of 'a
 
-type model = (string * string list) list transfer
+type player = { name : string
+              ; rating : int
+              }
+type game = { id : string
+            ; white : player
+            ; black : player
+            ; result : Pgn.result
+            }
+type model = game list transfer
 
 let init = Idle
+
+let tournament_id = "1JebhZhW"
+
 
 let make_request url headers action =
   let request = 
@@ -44,7 +55,7 @@ let update model = function
     begin match model with
       | Loading | Received _ -> model, Cmd.none
       | Idle | Failed ->
-        let url = "https://lichess.org/api/tournament/a3lZhGdA/games?moves=false" in
+        let url = Printf.sprintf "https://lichess.org/api/tournament/%s/games?moves=false" tournament_id in
         model,
         make_request
           url
@@ -57,15 +68,36 @@ let update model = function
   | Tournament_data (Ok data) ->
     let open Json.Decoder in
     let id_decoder = field "id" string in
-    let player_decoder = (field "user" (field "name" string)) in
-    let players_decoder = field "players"
-        (map2 (fun x y -> [x; y])
-           (field "white" player_decoder)
-           (field "black" player_decoder)) in
+    let player_decoder color =
+      field "players"
+        (field color
+           (map2 (fun name rating -> {name; rating})
+              (field "user" (field "name" string))
+              (field "rating" int))) in
+    (* https://github.com/ornicar/scalachess/blob/master/src/main/scala/Status.scala *)
+    let result_decoder = map2 (fun status winner ->
+        match status with
+        | "draw" | "stalemate" -> Some Chess.Draw
+        | "created" | "started" -> None
+        | "aborted" -> None
+        | "mate" | "resign" | "stalemate"
+        | "outoftime" | "cheat" | "noStart" -> begin
+            match winner with
+            | "white" -> Some (Chess.Win White)
+            | "black" -> Some (Chess.Win Black)
+            | _ -> None
+          end
+        | _ -> None
+      )
+        (field "status" string)
+        (field "winner" string) in
 
-    let game_decoder = map2 (fun x y -> x, y)
+    let game_decoder =
+      map4 (fun id white black result -> { id ; white ; black ; result })
         id_decoder
-        players_decoder in
+        (player_decoder "white")
+        (player_decoder "black")
+        result_decoder in
     let games = String.split_on_char '\n' data in
 
     let games_decoded = List.map (decodeString game_decoder) games |> Result.to_list in
@@ -78,11 +110,14 @@ let update model = function
 
 let view model =
   let open Html in
-  let game_view (id, players) =
-    td [] [ a [ Printf.sprintf "#/lichess/%s" id |> href ]
-              [ text id ]
+  let game_view game =
+    td [] [ a [ Printf.sprintf "#/lichess/%s" game.id |> href ]
+              [ text game.id ]
           ]::
-    List.map (fun player -> td [] [ text player ]) players
+    td [] [ Game.string_of_result game.result |> text ]::
+    List.map (fun player -> td [] [ text player ])
+      [ game.white.name ; game.white.rating |> string_of_int
+      ; game.black.name ; game.white.rating |> string_of_int ]
     |> tr [] in
 
   match model with
