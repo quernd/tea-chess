@@ -4,3 +4,4 @@ node_modules/
 src/*.bs.js
 lib/
 release/main.js
+.bsb.lock
