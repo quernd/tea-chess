@@ -64,3 +64,9 @@ module Result = struct
     | (Error _)::tl -> to_list tl
 
 end
+
+
+module Elements = struct
+  open Tea.Html
+  let spinner () = div [ class' "spinner" ] []
+end

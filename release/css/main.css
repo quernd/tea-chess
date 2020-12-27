@@ -1,5 +1,5 @@
 table tr:nth-of-type(even) {
-    background-color: #f0f0f0;
+    background-color: #e0e0e0;
 }
 
 html, body {
@@ -59,4 +59,20 @@ li.home {
     main {
         flex-direction: column;
     }
+}
+
+div.spinner {
+  margin-left: auto;
+  margin-right: auto;
+  border: 12px solid #e0e0e0;
+  border-top: 12px solid #a0b0c0;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

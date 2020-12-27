@@ -6,7 +6,7 @@ open Infix
 
 type route =
   | Game of int
-  | Tournament
+  | Games
   | Lichess of string
 
 
@@ -64,7 +64,7 @@ let route_of_location (location:Web.Location.location) =
   let route = Js.String.split "/" location.hash |> Array.to_list in
   match route with
   | ["#"; ""] -> Game 1
-  | ["#"; "tournament"] -> Tournament
+  | ["#"; "games"] -> Games
   | ["#"; "game"; id] -> Game (int_of_string id)
   | ["#"; "lichess"; id] -> Lichess id
   | _ -> Game 1  (* default route *)
@@ -72,7 +72,7 @@ let route_of_location (location:Web.Location.location) =
 let location_of_route = function
   | Game id -> Printf.sprintf "#/game/%d" id
   | Lichess id -> Printf.sprintf "#/lichess/%s" id
-  | Tournament -> "#/tournament"
+  | Games -> "#/games"
 
 
 let update_route model = function
@@ -82,8 +82,8 @@ let update_route model = function
     { model with route; game }, Cmd.none
   | Game _ -> { model with route = Game 1 },
               location_of_route (Game 1) |> Navigation.modifyUrl
-  | Tournament ->
-    { model with route = Tournament }, Cmd.none
+  | Games ->
+    { model with route = Games }, Cmd.none
   | Lichess game_id ->
     begin try
         let game = StringMap.find game_id model.lichess_games in
@@ -174,7 +174,7 @@ let update model = function
     let model, key = add_game_update_lens Game.init model in
     model, location_of_route (Game key) |> Navigation.newUrl
   | Switch_game 0 -> model,
-                     location_of_route Tournament |> Navigation.newUrl
+                     location_of_route Games |> Navigation.newUrl
   | Switch_game i -> model,
                      location_of_route (Game i) |> Navigation.newUrl
   | Location_changed location ->
@@ -250,8 +250,8 @@ let games_picker model =
   let options = IntMap.fold option_view model.games []
                 |> List.rev in
   option' [ value "0"
-          ; Attributes.selected (model.route = Tournament) ]
-    [ text "Tournament" ]::options
+          ; Attributes.selected (model.route = Games) ]
+    [ text "Lichess games" ]::options
   |> select [ int_of_string >>> switch_game |> onChange ?key:None ]
 
 
@@ -302,7 +302,7 @@ let view model =
         ; div [ class' "scroll" ]
             [ match model.route with
               | Game _ -> Game.view game |> map game_msg
-              | Tournament -> Lichess.view model.lichess |> map lichess_msg
+              | Games -> Lichess.view model.lichess |> map lichess_msg
               | _ -> noNode
             ]
         ]

@@ -303,7 +303,9 @@ let header_view pgn_header =
           ; span [] [ text v ]
           ] in
   List.filter 
-    (fun (k, _) -> k = "White" || k = "Black") pgn_header
+    (fun (k, _) -> k = "White" || k = "WhiteElo" || k = "WhiteTitle" ||
+                   k = "Black" || k = "BlackElo" || k = "BlackTitle" ||
+                   k = "Date") pgn_header
   |> List.map key_value_view
   |> ul [class' "pgnheader"]
 
