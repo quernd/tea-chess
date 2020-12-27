@@ -151,10 +151,10 @@ let update model = function
       | Play move_list ->
         move_list
         |> List.length
-        |> Random.int 0
+        |> Random.int 1
         |> Random.generate
           (fun random_number ->
-             List.nth move_list random_number |> random_move)
+             List.nth move_list (random_number - 1) |> random_move)
       | _ -> Cmd.none
     end
   | Key_pressed key_event ->
