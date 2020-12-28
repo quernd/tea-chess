@@ -9,6 +9,7 @@ type move =
   ; san : san
   ; pre_comments : comment list
   ; post_comments : comment list
+  ; nags : Pgn.nag list
   }
 
 type model =
@@ -52,6 +53,7 @@ let simple_move move san =
   ; san
   ; pre_comments = []
   ; post_comments = []
+  ; nags = []
   }
 
 let game_back model =
@@ -131,6 +133,7 @@ let simple_move move san =
   ; san = san
   ; pre_comments = []
   ; post_comments = []
+  ; nags = []
   }
 
 
@@ -158,6 +161,7 @@ let game_of_pgn' pgn =
     ; san
     ; pre_comments = pgn_move.pre_comments
     ; post_comments = pgn_move.post_comments
+    ; nags = pgn_move.nags
     }, Chess.make_move' position move
   and node_of_pgn position (pgn_move:Pgn.move) =
     let rav = List.map (variation_of_pgn position) pgn_move.rav in
@@ -203,8 +207,10 @@ let pgn_of_game model =
     and w_move = acc mod 2 = 0 in
     let pre_comments = List.map make_comment move.pre_comments in
     let post_comments = List.map make_comment move.post_comments in
+    let nags = List.map Nag.pgn_of_nag move.nags |> String.concat " " in
     pre_comments @
-    (if w_move then Printf.sprintf "%d." number::move.san::post_comments
+    (if w_move then
+       Printf.sprintf "%d." number::move.san::nags::post_comments
      else move.san::post_comments) @ variations
     |> String.concat " " in
   let make_mainline _acc line = line in
@@ -262,6 +268,8 @@ let move_list_view model =
           ; onClick (Jump acc.actions)
           ]
           [ move.san |> text ]
+      ; span [class' "nag"] (List.map (fun nag ->
+            Nag.string_of_nag nag |> text) move.nags)
       ; span [class' "comments"] (List.map make_comment move.post_comments)
       ; variations ] in
   let home_view acc =

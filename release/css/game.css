@@ -49,6 +49,10 @@ span.comment {
   color: #008000;
 }
 
+span.nag {
+  color: #404040;
+}
+
 
 ul.moves {
     margin: .25em;

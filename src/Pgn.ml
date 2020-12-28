@@ -13,7 +13,7 @@ type tag_pair = tag_name * tag_value
 type header = tag_pair list
 
 type comment = string
-type nag = string
+type nag = Nag.t
 type san = string
 
 type result = Chess.game_status option
@@ -81,8 +81,10 @@ let check = exactly '+'
 let checkmate = exactly '#'
 
 let promotion = maybe (exactly '=') >> piece
-let nag = (exactly '$' >> (many1 digit => implode)) <|>
-          (many1 (one_of ['!';'?']) => implode)
+let nag = (exactly '$' >> (many1 digit => implode => int_of_string)) <|>
+          (many1 (one_of ['!';'?']) => implode >>= (fun nag ->
+               try Nag.nag_of_string nag |> return
+               with Nag.Nag_error _ -> raise Parse_error))
 
 (* nonstandard 0-0 castle *)
 let castle =
