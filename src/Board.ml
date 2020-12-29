@@ -58,7 +58,7 @@ type msg =
 
 let cartesian_decoder field_x field_y =
   let open Json.Decoder in
-  map2 (fun x y -> ({x; y}:Mouse.position))
+  map2 (fun x y -> Mouse.{x; y})
     (field field_x int)
     (field field_y int)
 
@@ -77,11 +77,9 @@ let offset_page_size =
   |> decodeEvent
 
 let handler decoder msg event =
-  let open Result in
-  let result = decoder event in
-  match result with
-  | Ok result -> Some (msg result)
-  | Error _ -> None
+  match decoder event with
+  | Result.Ok result -> Some (msg result)
+  | Result.Error _ -> None
 
 
 let init =
@@ -187,13 +185,9 @@ let board_view interactable pos_ar model =
     Printf.sprintf "translate(%dpx,%dpx)" 
       (drag.offset.x - (drag.size / 2) + drag.coordinates.x - drag.initial.x)
       (drag.offset.y - (drag.size / 2) + drag.coordinates.y - drag.initial.y)
-    |>  style "transform" in
+    |> style "transform" in
 
-  let target_highlight drag target =
-    match drag.target with
-    | Some square when square = target -> true
-    | _ -> false
-  and legal_highlight drag target = List.exists
+  let legal_highlight drag target = List.exists
       (fun (square, _) -> square = target) drag.legal_targets in
 
   let rank_view rank =
@@ -226,7 +220,7 @@ let board_view interactable pos_ar model =
          | Dragging drag ->
            [ classList
                [ "destination", legal_highlight drag (file, rank)
-               ; "hovering", target_highlight drag (file, rank)
+               (* ; "hovering", target_highlight drag (file, rank) *)
                ]
            ; onMouseEnter (Internal_msg (Square_entered (file, rank)))
            ; onMouseLeave (Internal_msg (Square_left (file, rank)))
