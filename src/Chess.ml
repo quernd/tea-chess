@@ -244,12 +244,12 @@ module FEN = struct
     Printf.sprintf "%s %c %s %s %d %d" board turn castling en_passant position.irr_change full_move
 
   let board_of_fen board =
-    let ranks = Js.String.split "/" board in
-    match Array.length ranks with
+    let ranks = String.split_on_char '/' board in
+    match List.length ranks with
     | 8 ->
       let ar = Array.make_matrix 8 8 Empty in
       let king_w = ref None and king_b = ref None in
-      Array.iteri
+      List.iteri
         (fun i rank_string ->
            let rank = 7 - i in
            let file = ref 0 in
@@ -307,7 +307,7 @@ module FEN = struct
       end
 
   let position_of_fen fen =
-    let fields = Js.String.split " " fen |> Array.to_list in
+    let fields = String.split_on_char ' ' fen in
     match fields with
     | [board; turn; castling; en_passant; irr_change; full_move] ->
       let ar, king_w, king_b = board_of_fen board in
