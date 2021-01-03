@@ -37,7 +37,7 @@ let init_with_position position =
   { position
   ; moves = Zipper.tree_init ()
   ; header = []
-  ; result = None              
+  ; result = None
   }
 
 let init_with_fen =
@@ -169,7 +169,7 @@ let game_of_pgn' pgn =
 
   in
 
-  let game = 
+  let game =
     try Pgn.parse_pgn pgn |> Option.get
     with Invalid_argument _ -> raise Pgn.Parse_error in
   let init_fen =
@@ -183,14 +183,14 @@ let game_of_pgn' pgn =
   let moves = line_of_pgn init_position game.moves in
   { position = init_position
   ; header = game.header
-  ; moves = (Zipper.Main_line, []), moves
+  ; moves = (Zipper.Main_line, [], moves)
   ; result = game.result
   }
 
 
 let game_of_pgn pgn =
   try Some (game_of_pgn' pgn)
-  with _ -> None 
+  with _ -> None
 
 
 let pgn_of_game model =
@@ -309,7 +309,7 @@ let header_view pgn_header =
     li [] [ label [] [ [ text k ] |> span [] ]
           ; span [] [ text v ]
           ] in
-  List.filter 
+  List.filter
     (fun (k, _) -> k = "White" || k = "WhiteElo" || k = "WhiteTitle" ||
                    k = "Black" || k = "BlackElo" || k = "BlackTitle" ||
                    k = "Date") pgn_header
