@@ -36,17 +36,18 @@ and 'a line = 'a node list
 (* line context represents position of a line in the game tree *)
 type 'a line_context =
   | Main_line
-  | Var_line of 'a tree_zipper        (* outer context *)
+  | Var_line of 'a node_context       (* outer context *)
                 * 'a                  (* main line move *)
                 * 'a variation list   (* variations before *)
                 * 'a                  (* move starting this variation *)
                 * 'a variation list   (* variations after *)
 
-(* tree zipper represents position in a line within a tree *)
-and 'a tree_zipper = 'a line_context  (* line context *)
+(* node context represents position in a line within a tree *)
+and 'a node_context = 'a line_context (* line context *)
                       * 'a line       (* past *)
                       * 'a line       (* future *)
 
+type 'a tree_zipper = 'a node_context
 
 exception No_variations
 exception No_next_variation
