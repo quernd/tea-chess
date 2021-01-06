@@ -33,18 +33,17 @@ type 'a node = Node of 'a * 'a variation list
 and 'a variation = Var of 'a * 'a line
 and 'a line = 'a node list
 
-
+(* line context represents position of a line in the game tree *)
 type 'a line_context =
   | Main_line
-  | Var_line of 'a line_context       (* outer context *)
-                * 'a line             (* past *)
+  | Var_line of 'a tree_zipper        (* outer context *)
                 * 'a                  (* main line move *)
                 * 'a variation list   (* variations before *)
                 * 'a                  (* move starting this variation *)
                 * 'a variation list   (* variations after *)
-                * 'a line             (* future *)
 
-type 'a tree_zipper = 'a line_context (* context *)
+(* tree zipper represents position in a line within a tree *)
+and 'a tree_zipper = 'a line_context  (* line context *)
                       * 'a line       (* past *)
                       * 'a line       (* future *)
 
@@ -74,35 +73,33 @@ let tree_down (context, past, future) =
     | Node (_, []) -> raise No_variations
     | Node (main, Var (var, line)::variations) ->
       let context' =
-        Var_line (context, past', main, [], var, variations, future) in
+        Var_line ((context, past', future), main, [], var, variations) in
       var, (context', [], line)
 
 let tree_next (context, past, future) =
   match past, context with
   | [], Main_line -> raise No_next_variation
-  | [], Var_line (_, _, _, _, _, [], _) -> raise No_next_variation
-  | [], Var_line (context', past, main, left, var,
-                  Var (next, line)::right, future') ->
+  | [], Var_line (_, _, _, _, []) -> raise No_next_variation
+  | [], Var_line (context', main, left, var, Var (next, line)::right) ->
     let var' = Var_line
-        (context', past, main, Var (var, future)::left, next, right, future') in
+        (context', main, Var (var, future)::left, next, right) in
     next, (var', [], line)
   | _ -> raise Not_beginning_of_list
 
 let tree_prev (context, past, future) =
   match past, context with
   | [], Main_line -> raise No_prev_variation
-  | [], Var_line (_, _, _, [], _, _, _) -> raise No_prev_variation
-  | [], Var_line (context', past, main,
-                  Var (prev, line)::left, var, right, future') ->
+  | [], Var_line (_, _, [], _, _) -> raise No_prev_variation
+  | [], Var_line (context', main, Var (prev, line)::left, var, right) ->
     let var' = Var_line
-        (context', past, main, left, prev, Var (var, future)::right, future') in
+        (context', main, left, prev, Var (var, future)::right) in
     prev, (var', [], line)
   | _ -> raise Not_beginning_of_list
 
 let tree_up (context, past, future) =
   match past, context with
   | [], Main_line -> raise Not_in_variation
-  | [], Var_line (context', past', main, left, var, right, future') ->
+  | [], Var_line ((context', past', future'), main, left, var, right) ->
     let variations = List.rev_append left (Var (var, future)::right) in
     let main_node = Node (main, variations) in
     main, (context', main_node::past', future')
@@ -118,11 +115,11 @@ let tree_fwd' item (context, past, future) =
       match right with
       | [] ->
         let context' =
-          Var_line (context, past, main, left, item, right, future') in
+          Var_line ((context, past, future'), main, left, item, right) in
         (context', [], [])
       | Var (var, line)::right' when item = var ->
         let context' =
-          Var_line (context, past, main, left, var, right', future') in
+          Var_line ((context, past, future'), main, left, var, right') in
         (context', [], line)
       | variation::right' -> tree_fwd_var item (variation::left) right' in
     1, (tree_fwd_var item [] variations)
@@ -176,7 +173,7 @@ let fold_zipper
   and fold_line_context acc context inner =
     match context with
     | Main_line -> make_mainline acc inner
-    | Var_line (context, past, main, left, var_move, right, future) ->
+    | Var_line (context, main, left, var_move, right) ->
       let this_var = make_move acc var_move (make_variations [])::inner
                      |> id (* + acc make "not mainline" ? *)
                      |> make_line
@@ -186,7 +183,7 @@ let fold_zipper
       |> fst
       |> make_variations
       |> make_move (up acc) main
-      |> fold_tree_context (up acc) (context, past, future) in
+      |> fold_tree_context (up acc) context in
 
   let fold_acc, acc' = fold_future (fwd acc) future
                        |> fold_past acc past in
