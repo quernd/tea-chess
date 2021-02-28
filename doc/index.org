@@ -5637,7 +5637,7 @@ let fold_zipper
   |> make_line
 #+END_SRC
 
-** TODO Move tree view and proper PGN serialization
+** Move tree view and proper PGN serialization
 
 We can now use the generic tree zipper fold for both the move tree
 view and PGN serialization, just by supplying the right functions:
@@ -5725,7 +5725,7 @@ let move_list_view model =
     ~acc ~fwd ~back ~up ~down ~next ~prev model.moves
 #+END_SRC
 
-** TODO Navigating in a zipper
+** Navigating in a zipper
 
 In order to navigate in a move tree view, we need to extend our
 "vocabulary" of navigation primitives.  In a move list, all we needed
@@ -5827,7 +5827,7 @@ let update model = function
     model |> fun_of_actions actions, Cmd.none
 #+END_SRC
 
-** TODO The final touches (CSS)
+** The final touches (CSS)
 
 Let's add some CSS to make the move tree look nice.  We'll make
 subvariations a little smaller and assign different list styles.  Also
